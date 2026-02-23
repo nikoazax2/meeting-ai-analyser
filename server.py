@@ -15,11 +15,20 @@ import psutil
 from flask import Flask, Response, request, send_from_directory
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TRANSCRIPTION_FILE = os.path.join(SCRIPT_DIR, "transcription_live.txt")
-ANALYSIS_FILE = os.path.join(SCRIPT_DIR, "analyse_reunion.md")
-TRANSCRIBE_SCRIPT = os.path.join(SCRIPT_DIR, "live_transcribe.py")
 
-app = Flask(__name__, static_folder=SCRIPT_DIR)
+# These are overridden by main.py when running as frozen exe
+BUNDLE_DIR = SCRIPT_DIR   # Where index.html, images/ are (read-only in exe)
+WORKING_DIR = SCRIPT_DIR  # Where output files go (next to .exe)
+
+app = Flask(__name__, static_folder=None)
+
+
+def _get_paths():
+    """Get current file paths (uses WORKING_DIR which may be set by main.py)"""
+    return {
+        "transcription": os.path.join(WORKING_DIR, "transcription_live.txt"),
+        "analysis": os.path.join(WORKING_DIR, "analyse_reunion.md"),
+    }
 
 # Global status (injected by main.py)
 app_status = {"ready": False, "message": "Starting...", "language": "en", "model": "small"}
@@ -52,25 +61,27 @@ def read_file_safe(filepath):
 
 @app.route("/")
 def index():
-    return send_from_directory(SCRIPT_DIR, "index.html")
+    return send_from_directory(BUNDLE_DIR, "index.html")
 
 
 @app.route("/images/<path:filename>")
 def serve_images(filename):
-    return send_from_directory(os.path.join(SCRIPT_DIR, "images"), filename)
+    return send_from_directory(os.path.join(BUNDLE_DIR, "images"), filename)
 
 
 @app.route("/api/transcription")
 def get_transcription():
-    content = read_file_safe(TRANSCRIPTION_FILE)
-    mtime = os.path.getmtime(TRANSCRIPTION_FILE) if os.path.exists(TRANSCRIPTION_FILE) else 0
+    paths = _get_paths()
+    content = read_file_safe(paths["transcription"])
+    mtime = os.path.getmtime(paths["transcription"]) if os.path.exists(paths["transcription"]) else 0
     return {"content": content, "mtime": mtime}
 
 
 @app.route("/api/analysis")
 def get_analysis():
-    content = read_file_safe(ANALYSIS_FILE)
-    mtime = os.path.getmtime(ANALYSIS_FILE) if os.path.exists(ANALYSIS_FILE) else 0
+    paths = _get_paths()
+    content = read_file_safe(paths["analysis"])
+    mtime = os.path.getmtime(paths["analysis"]) if os.path.exists(paths["analysis"]) else 0
     return {"content": content, "mtime": mtime}
 
 
@@ -116,35 +127,28 @@ def get_devices():
 
 @app.route("/api/restart", methods=["POST"])
 def restart_transcription():
-    """Restart live_transcribe.py with a new mic device"""
+    """Restart transcription with a new mic device (works in both exe and dev mode)"""
     data = request.get_json() or {}
     mic_id = data.get("micDevice")
-    # Kill current live_transcribe process
-    my_pid = os.getpid()
-    killed = False
-    for proc in psutil.process_iter(["pid", "cmdline"]):
-        try:
-            cmd_str = " ".join(proc.info["cmdline"] or [])
-            if "live_transcribe" in cmd_str and proc.info["pid"] != my_pid:
-                proc.kill()
-                killed = True
-        except Exception:
-            pass
-    # Relaunch with new mic
-    cmd = [sys.executable, TRANSCRIBE_SCRIPT]
-    if mic_id is not None:
-        cmd += ["--mic-device", str(mic_id)]
-    subprocess.Popen(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
-    return {"status": "restarted", "micDevice": mic_id, "killed": killed}
+
+    try:
+        import live_transcribe
+        # Update the mic device and let the module handle the restart
+        live_transcribe.active_mic_id = mic_id
+        live_transcribe.restart_requested = True
+        return {"status": "restarted", "micDevice": mic_id}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}, 500
 
 
 @app.route("/api/reset", methods=["POST"])
 def reset():
     """Clear transcription and analysis files"""
     import datetime
-    with open(TRANSCRIPTION_FILE, "w", encoding="utf-8") as f:
+    paths = _get_paths()
+    with open(paths["transcription"], "w", encoding="utf-8") as f:
         f.write(f"=== Live Transcription - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n\n")
-    with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
+    with open(paths["analysis"], "w", encoding="utf-8") as f:
         f.write("")
     return {"status": "reset"}
 
@@ -224,19 +228,20 @@ def stream():
     def generate():
         last_trans_mtime = 0
         last_analysis_mtime = 0
+        paths = _get_paths()
         while True:
-            trans_mtime = os.path.getmtime(TRANSCRIPTION_FILE) if os.path.exists(TRANSCRIPTION_FILE) else 0
-            analysis_mtime = os.path.getmtime(ANALYSIS_FILE) if os.path.exists(ANALYSIS_FILE) else 0
+            trans_mtime = os.path.getmtime(paths["transcription"]) if os.path.exists(paths["transcription"]) else 0
+            analysis_mtime = os.path.getmtime(paths["analysis"]) if os.path.exists(paths["analysis"]) else 0
 
             if trans_mtime != last_trans_mtime:
                 last_trans_mtime = trans_mtime
-                content = read_file_safe(TRANSCRIPTION_FILE)
+                content = read_file_safe(paths["transcription"])
                 data = json.dumps({"type": "transcription", "content": content})
                 yield f"data: {data}\n\n"
 
             if analysis_mtime != last_analysis_mtime:
                 last_analysis_mtime = analysis_mtime
-                content = read_file_safe(ANALYSIS_FILE)
+                content = read_file_safe(paths["analysis"])
                 data = json.dumps({"type": "analysis", "content": content})
                 yield f"data: {data}\n\n"
 

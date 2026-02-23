@@ -2,8 +2,20 @@
 """PyInstaller spec for Meeting AI Analyser"""
 import os
 import site
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
+
+# Collect packages that have C extensions or complex structures
+_datas, _binaries, _hiddenimports = [], [], []
+for pkg in ['psutil', 'faster_whisper', 'ctranslate2', 'pyaudiowpatch']:
+    try:
+        d, b, h = collect_all(pkg)
+        _datas += d
+        _binaries += b
+        _hiddenimports += h
+    except Exception:
+        pass
 
 # Find CTranslate2 and NVIDIA binaries
 site_packages = site.getsitepackages()[0]
@@ -28,12 +40,12 @@ for nvidia_dir in [nvidia_cublas, nvidia_cudnn]:
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=binaries,
+    binaries=binaries + _binaries,
     datas=[
         ('index.html', '.'),
         ('assets/app.ico', 'assets'),
         ('images', 'images'),
-    ],
+    ] + _datas,
     hiddenimports=[
         'faster_whisper',
         'ctranslate2',
@@ -41,12 +53,15 @@ a = Analysis(
         'numpy',
         'scipy',
         'scipy.signal',
+        'scipy.signal.windows',
         'flask',
         'psutil',
+        'huggingface_hub',
+        'tokenizers',
         'live_transcribe',
         'analyst',
         'server',
-    ],
+    ] + _hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -73,7 +88,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

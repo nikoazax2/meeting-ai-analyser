@@ -8,13 +8,25 @@ import sys
 import time
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TRANSCRIPTION_FILE = os.path.join(SCRIPT_DIR, "transcription_live.txt")
-ANALYSIS_FILE = os.path.join(SCRIPT_DIR, "analyse_reunion.md")
-LOG_FILE = os.path.join(SCRIPT_DIR, "analyst_debug.log")
+
+# WORKING_DIR is overridden by main.py when running as frozen exe
+WORKING_DIR = SCRIPT_DIR
+
+
+def _transcription_file():
+    return os.path.join(WORKING_DIR, "transcription_live.txt")
+
+
+def _analysis_file():
+    return os.path.join(WORKING_DIR, "analyse_reunion.md")
+
+
+def _log_file():
+    return os.path.join(WORKING_DIR, "analyst_debug.log")
 
 
 def log(msg):
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
+    with open(_log_file(), "a", encoding="utf-8") as f:
         f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
 
 
@@ -38,9 +50,10 @@ TRANSCRIPTION:
 
 
 def read_transcription():
-    if not os.path.exists(TRANSCRIPTION_FILE):
+    path = _transcription_file()
+    if not os.path.exists(path):
         return None
-    with open(TRANSCRIPTION_FILE, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return f.read().strip()
 
 
@@ -48,7 +61,7 @@ def analyze_with_claude(text):
     prompt = PROMPT.format(transcription=text)
 
     # Write prompt to temp file to avoid Windows quote issues
-    prompt_file = os.path.join(SCRIPT_DIR, "temp_prompt.txt")
+    prompt_file = os.path.join(WORKING_DIR, "temp_prompt.txt")
     with open(prompt_file, "w", encoding="utf-8") as f:
         f.write(prompt)
 
@@ -133,12 +146,12 @@ def _run(stop_event=None, interval=60):
             analyst_status["last_run"] = time.time()
 
             if analysis:
-                with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
+                with open(_analysis_file(), "w", encoding="utf-8") as f:
                     f.write(f"# Meeting Analysis - {time.strftime('%Y-%m-%d %H:%M')}\n\n")
                     f.write(analysis)
                     f.write("\n")
 
-                print(f"[{timestamp}] Analysis saved to {ANALYSIS_FILE}")
+                print(f"[{timestamp}] Analysis saved to {_analysis_file()}")
             else:
                 print(f"[{timestamp}] No analysis returned.")
         else:
@@ -158,8 +171,8 @@ def main():
     """Standalone entry point"""
     print("=" * 60)
     print("  MEETING AI ANALYSER - Analysis Module")
-    print(f"  Reading from: {TRANSCRIPTION_FILE}")
-    print(f"  Output to: {ANALYSIS_FILE}")
+    print(f"  Reading from: {_transcription_file()}")
+    print(f"  Output to: {_analysis_file()}")
     print("  Ctrl+C to stop")
     print("=" * 60 + "\n")
     try:

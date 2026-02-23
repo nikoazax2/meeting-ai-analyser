@@ -1,0 +1,6 @@
+faster-whisper
+pyaudiowpatch
+numpy
+scipy
+flask
+psutil

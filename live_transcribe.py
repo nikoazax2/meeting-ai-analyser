@@ -25,26 +25,39 @@ import threading
 import time
 import wave
 
-# Add NVIDIA CUDA DLL path before any CUDA import
-_nvidia_path = os.path.join(
-    os.path.expanduser("~"),
-    "AppData", "Local", "Packages",
-    "PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0",
-    "LocalCache", "local-packages", "Python313",
-    "site-packages", "nvidia", "cublas", "bin"
-)
-if os.path.isdir(_nvidia_path):
-    os.environ["PATH"] = _nvidia_path + os.pathsep + os.environ.get("PATH", "")
-    os.add_dll_directory(_nvidia_path)
+# Add NVIDIA CUDA DLL path before any CUDA import (dynamic detection)
+_local_app_data = os.environ.get("LOCALAPPDATA", os.path.join(os.path.expanduser("~"), "AppData", "Local"))
+_packages_dir = os.path.join(_local_app_data, "Packages")
+if os.path.isdir(_packages_dir):
+    for _pkg in os.listdir(_packages_dir):
+        if _pkg.startswith("PythonSoftwareFoundation.Python"):
+            _local_cache = os.path.join(_packages_dir, _pkg, "LocalCache", "local-packages")
+            if os.path.isdir(_local_cache):
+                for _pyver in os.listdir(_local_cache):
+                    _nvidia_path = os.path.join(_local_cache, _pyver, "site-packages", "nvidia", "cublas", "bin")
+                    if os.path.isdir(_nvidia_path):
+                        os.environ["PATH"] = _nvidia_path + os.pathsep + os.environ.get("PATH", "")
+                        os.add_dll_directory(_nvidia_path)
+                        break
 
 import numpy as np
 import pyaudiowpatch as pyaudio
 
-# Output files
+# Output files - WORKING_DIR is overridden by main.py when running as frozen exe
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_FILE = os.path.join(SCRIPT_DIR, "transcription_live.txt")
-OUTPUT_LATEST = os.path.join(SCRIPT_DIR, "transcription_latest.txt")
-AUDIO_TEMP = os.path.join(SCRIPT_DIR, "temp_segment.wav")
+WORKING_DIR = SCRIPT_DIR
+
+
+def _output_file():
+    return os.path.join(WORKING_DIR, "transcription_live.txt")
+
+
+def _output_latest():
+    return os.path.join(WORKING_DIR, "transcription_latest.txt")
+
+
+def _audio_temp():
+    return os.path.join(WORKING_DIR, "temp_segment.wav")
 
 # Config
 DEFAULT_SEGMENT_DURATION = 10
@@ -57,6 +70,7 @@ running = True
 
 # Active microphone (exposed for server.py in thread mode)
 active_mic_id = None
+restart_requested = False
 
 # Real-time audio levels (exposed for server.py)
 audio_levels = {"loopback": 0.0, "mic": 0.0}
@@ -174,7 +188,7 @@ def transcribe_segment(model, audio_data, sample_rate, language="fr"):
         return None
 
     audio_int16 = (audio_data * 32767).astype(np.int16)
-    with wave.open(AUDIO_TEMP, "wb") as wf:
+    with wave.open(_audio_temp(), "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
@@ -182,7 +196,7 @@ def transcribe_segment(model, audio_data, sample_rate, language="fr"):
 
     try:
         segments, info = model.transcribe(
-            AUDIO_TEMP,
+            _audio_temp(),
             language=language,
             beam_size=5,
             vad_filter=True,
@@ -296,7 +310,7 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
         print(f"[CONFIG] Mic:      disabled")
     print(f"[CONFIG] Segments: {segment}s")
     print(f"[CONFIG] Model: {model_size}, Language: {language}")
-    print(f"[CONFIG] Output: {OUTPUT_FILE}")
+    print(f"[CONFIG] Output: {_output_file()}")
 
     # Load Whisper
     model = load_whisper_model(model_size)
@@ -305,7 +319,7 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
         return
 
     # Init output file
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    with open(_output_file(), "w", encoding="utf-8") as f:
         f.write(f"=== Live Transcription - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n\n")
 
     print("\n" + "=" * 60)
@@ -434,10 +448,10 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
                     line = f"[{timestamp}] {text}"
                     print(f"\n  >> {text}")
 
-                    with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
+                    with open(_output_file(), "a", encoding="utf-8") as f:
                         f.write(line + "\n")
 
-                    with open(OUTPUT_LATEST, "w", encoding="utf-8") as f:
+                    with open(_output_latest(), "w", encoding="utf-8") as f:
                         f.write(text)
                 else:
                     print("(silence)")
@@ -455,9 +469,9 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
 
     finally:
         p.terminate()
-        if os.path.exists(AUDIO_TEMP):
-            os.remove(AUDIO_TEMP)
-        print(f"\n[DONE] Transcription saved to: {OUTPUT_FILE}")
+        if os.path.exists(_audio_temp()):
+            os.remove(_audio_temp())
+        print(f"\n[DONE] Transcription saved to: {_output_file()}")
 
 
 def main():

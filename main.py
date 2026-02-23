@@ -12,6 +12,24 @@ import time
 import webbrowser
 
 
+def get_bundle_dir():
+    """Directory where bundled data files are (index.html, images/)"""
+    if getattr(sys, "frozen", False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def get_working_dir():
+    """Directory for output files (next to .exe, or script dir in dev)"""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+BUNDLE_DIR = get_bundle_dir()
+WORKING_DIR = get_working_dir()
+
+
 # Global loading status
 app_status = {
     "server": False,
@@ -57,6 +75,8 @@ def main():
     # 1. Web server FIRST (starts fast)
     import server
     server.app_status = app_status
+    server.BUNDLE_DIR = BUNDLE_DIR
+    server.WORKING_DIR = WORKING_DIR
     t_server = threading.Thread(
         target=server.start,
         args=(stop_event, args.port),
@@ -76,6 +96,7 @@ def main():
     # 3. Transcription (loads Whisper = slow)
     app_status["message"] = "Loading Whisper model..."
     import live_transcribe
+    live_transcribe.WORKING_DIR = WORKING_DIR
     t_transcribe = threading.Thread(
         target=live_transcribe.start,
         args=(stop_event,),
@@ -97,6 +118,7 @@ def main():
     # 4. Claude analysis (optional)
     if not args.no_analysis:
         import analyst
+        analyst.WORKING_DIR = WORKING_DIR
         t_analyst = threading.Thread(
             target=analyst.start,
             args=(stop_event,),
