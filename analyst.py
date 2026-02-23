@@ -1,6 +1,6 @@
 """
-Meeting AI Analyser - Module d'analyse IA
-Lit la transcription toutes les 60s et lance Claude pour analyser la reunion en cours
+Meeting AI Analyser - AI analysis module
+Reads transcription every 60s and runs Claude to analyze the ongoing meeting
 """
 import os
 import subprocess
@@ -10,19 +10,29 @@ import time
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TRANSCRIPTION_FILE = os.path.join(SCRIPT_DIR, "transcription_live.txt")
 ANALYSIS_FILE = os.path.join(SCRIPT_DIR, "analyse_reunion.md")
+LOG_FILE = os.path.join(SCRIPT_DIR, "analyst_debug.log")
 
-PROMPT = """Tu es un assistant de reunion en temps reel. Voici la transcription live d'une reunion en cours.
 
-INSTRUCTIONS :
-1. Resume les sujets abordes
-2. Liste les decisions prises
-3. Identifie les questions ouvertes
-4. Propose des solutions techniques si pertinent
-5. Liste les actions a faire (qui fait quoi)
+def log(msg):
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
 
-Sois concis et structure. Format Markdown.
 
-TRANSCRIPTION :
+# Timing state (exposed for server.py)
+analyst_status = {"state": "idle", "last_run": 0, "next_run": 0, "interval": 60}
+
+PROMPT = """You are a real-time meeting assistant. Here is the live transcription of an ongoing meeting.
+
+INSTRUCTIONS:
+1. Summarize the topics discussed
+2. List decisions made
+3. Identify open questions
+4. Suggest technical solutions if relevant
+5. List action items (who does what)
+
+Be concise and structured. Markdown format.
+
+TRANSCRIPTION:
 {transcription}
 """
 
@@ -37,12 +47,12 @@ def read_transcription():
 def analyze_with_claude(text):
     prompt = PROMPT.format(transcription=text)
 
-    # Ecrire le prompt dans un fichier temp pour eviter les problemes de quotes Windows
+    # Write prompt to temp file to avoid Windows quote issues
     prompt_file = os.path.join(SCRIPT_DIR, "temp_prompt.txt")
     with open(prompt_file, "w", encoding="utf-8") as f:
         f.write(prompt)
 
-    # Chercher claude dans les chemins connus
+    # Find claude in known paths
     claude_cmd = "claude"
     for path in [
         os.path.expanduser("~/AppData/Roaming/npm/claude.cmd"),
@@ -52,7 +62,11 @@ def analyze_with_claude(text):
             claude_cmd = path
             break
 
+    log(f"Using claude: {claude_cmd}")
     try:
+        env = os.environ.copy()
+        env.pop("CLAUDECODE", None)
+        log(f"Calling claude --print (prompt length: {len(prompt)})")
         result = subprocess.run(
             [claude_cmd, "--print"],
             input=prompt,
@@ -60,17 +74,25 @@ def analyze_with_claude(text):
             text=True,
             timeout=120,
             encoding="utf-8",
+            env=env,
         )
+        log(f"Return code: {result.returncode}")
+        log(f"Stdout length: {len(result.stdout)}")
+        if result.stderr:
+            log(f"Stderr: {result.stderr[:500]}")
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
         else:
-            print(f"[ERREUR] Claude: {result.stderr[:200] if result.stderr else 'pas de reponse'}")
+            log(f"FAIL: no output or bad return code")
             return None
     except FileNotFoundError:
-        print("[ERREUR] 'claude' non trouve dans le PATH. Installez Claude Code.")
+        log(f"ERROR: claude not found at {claude_cmd}")
         sys.exit(1)
     except subprocess.TimeoutExpired:
-        print("[WARN] Claude a mis trop de temps, on retry au prochain cycle.")
+        log("ERROR: claude timed out (120s)")
+        return None
+    except Exception as e:
+        log(f"ERROR: {type(e).__name__}: {e}")
         return None
     finally:
         if os.path.exists(prompt_file):
@@ -78,16 +100,20 @@ def analyze_with_claude(text):
 
 
 def start(stop_event, interval=60):
-    """Point d'entree pour le mode module (appele depuis main.py en thread)"""
+    """Entry point for module mode (called from main.py as thread)"""
     _run(stop_event=stop_event, interval=interval)
 
 
 def _run(stop_event=None, interval=60):
-    """Logique principale d'analyse"""
+    """Main analysis logic"""
     last_content = ""
 
-    print("[ANALYST] Module analyse IA demarre")
-    print(f"[ANALYST] Intervalle: {interval}s")
+    log("=== ANALYST STARTED ===")
+    log(f"Interval: {interval}s")
+    analyst_status["interval"] = interval
+    analyst_status["next_run"] = time.time() + interval
+    print("[ANALYST] AI analysis module started")
+    print(f"[ANALYST] Interval: {interval}s")
 
     while True:
         if stop_event and stop_event.is_set():
@@ -98,43 +124,48 @@ def _run(stop_event=None, interval=60):
         if content and content != last_content and len(content) > 50:
             last_content = content
             timestamp = time.strftime("%H:%M:%S")
-            print(f"[{timestamp}] Nouvelle transcription detectee, analyse en cours...")
+            log(f"New transcription ({len(content)} chars), launching analysis...")
+            print(f"[{timestamp}] New transcription detected, analyzing...")
 
+            analyst_status["state"] = "analyzing"
             analysis = analyze_with_claude(content)
+            analyst_status["state"] = "idle"
+            analyst_status["last_run"] = time.time()
 
             if analysis:
                 with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
-                    f.write(f"# Analyse de reunion - {time.strftime('%Y-%m-%d %H:%M')}\n\n")
+                    f.write(f"# Meeting Analysis - {time.strftime('%Y-%m-%d %H:%M')}\n\n")
                     f.write(analysis)
                     f.write("\n")
 
-                print(f"[{timestamp}] Analyse sauvegardee dans {ANALYSIS_FILE}")
+                print(f"[{timestamp}] Analysis saved to {ANALYSIS_FILE}")
             else:
-                print(f"[{timestamp}] Pas d'analyse retournee.")
+                print(f"[{timestamp}] No analysis returned.")
         else:
             timestamp = time.strftime("%H:%M:%S")
-            print(f"[{timestamp}] En attente de nouvelle transcription...")
+            print(f"[{timestamp}] Waiting for new transcription...")
 
+        analyst_status["next_run"] = time.time() + interval
         if stop_event:
             stop_event.wait(interval)
         else:
             time.sleep(interval)
 
-    print("[ANALYST] Module analyse arrete.")
+    print("[ANALYST] Analysis module stopped.")
 
 
 def main():
-    """Point d'entree standalone"""
+    """Standalone entry point"""
     print("=" * 60)
-    print("  MEETING AI ANALYSER - Module Analyse")
-    print(f"  Lecture de: {TRANSCRIPTION_FILE}")
-    print(f"  Resultat dans: {ANALYSIS_FILE}")
-    print("  Ctrl+C pour arreter")
+    print("  MEETING AI ANALYSER - Analysis Module")
+    print(f"  Reading from: {TRANSCRIPTION_FILE}")
+    print(f"  Output to: {ANALYSIS_FILE}")
+    print("  Ctrl+C to stop")
     print("=" * 60 + "\n")
     try:
         _run()
     except KeyboardInterrupt:
-        print("\n[STOP] Arret analyse.")
+        print("\n[STOP] Analysis stopped.")
 
 
 if __name__ == "__main__":

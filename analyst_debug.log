@@ -1,0 +1,23 @@
+[15:24:24] === ANALYST STARTED ===
+[15:24:24] Interval: 60s
+[15:24:24] New transcription (986 chars), launching analysis...
+[15:24:24] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[15:24:24] Calling claude --print (prompt length: 1320)
+[15:24:49] Return code: 0
+[15:24:49] Stdout length: 791
+[15:25:12] === ANALYST STARTED ===
+[15:25:12] Interval: 60s
+[15:28:51] === ANALYST STARTED ===
+[15:28:51] Interval: 60s
+[15:29:51] New transcription (628 chars), launching analysis...
+[15:29:51] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[15:29:51] Calling claude --print (prompt length: 962)
+[15:30:20] Return code: 0
+[15:30:20] Stdout length: 1033
+[15:31:16] === ANALYST STARTED ===
+[15:31:16] Interval: 60s
+[15:32:16] New transcription (642 chars), launching analysis...
+[15:32:16] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[15:32:16] Calling claude --print (prompt length: 976)
+[15:32:43] Return code: 0
+[15:32:43] Stdout length: 917

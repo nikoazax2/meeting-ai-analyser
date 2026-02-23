@@ -1,629 +1,914 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meeting AI Analyser - Neoteem</title>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting AI Analyser</title>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #0d1117;
-            color: #e6edf3;
-            height: 100vh;
-            overflow: hidden;
+      body {
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #0d1117;
+        color: #e6edf3;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* Header */
+      .header {
+        background: #161b22;
+        border-bottom: 1px solid #30363d;
+        padding: 12px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 56px;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .header h1 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #e6edf3;
+      }
+
+      .source-badges {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .source-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #21262d;
+        border: 1px solid #30363d;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 12px;
+        color: #8b949e;
+      }
+
+      .audio-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 1.5px;
+        height: 14px;
+        margin-left: 2px;
+      }
+
+      .audio-bar {
+        width: 2.5px;
+        background: #3fb950;
+        border-radius: 1px;
+        min-height: 2px;
+        transition: height 0.12s ease-out;
+      }
+
+      .audio-bars.inactive .audio-bar {
+        background: #f85149;
+        height: 2px !important;
+      }
+
+      .source-badge .icon {
+        font-size: 13px;
+        line-height: 1;
+      }
+
+      .source-badge .label {
+        color: #c9d1d9;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #3fb950;
+        animation: pulse 2s infinite;
+        display: none;
+      }
+
+      .status-dot.inactive {
+        background: #f85149;
+        animation: none;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
         }
-
-        /* Header */
-        .header {
-            background: #161b22;
-            border-bottom: 1px solid #30363d;
-            padding: 12px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 56px;
+        50% {
+          opacity: 0.4;
         }
+      }
 
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 13px;
+        color: #8b949e;
+      }
+
+      .segment-count {
+        background: #21262d;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+      }
+
+      /* Main layout */
+      .main {
+        display: flex;
+        height: calc(100vh - 56px);
+      }
+
+      /* Panels */
+      .panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .panel:first-child {
+        border-right: 1px solid #30363d;
+      }
+
+      .panel-header {
+        background: #161b22;
+        padding: 10px 20px;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 44px;
+      }
+
+      .panel-title {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #8b949e;
+      }
+
+      .panel-badge {
+        font-size: 11px;
+        background: #1f6feb33;
+        color: #58a6ff;
+        padding: 2px 8px;
+        border-radius: 10px;
+      }
+
+      .panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px;
+        scroll-behavior: smooth;
+      }
+
+      /* Transcription */
+      .trans-line {
+        padding: 8px 12px;
+        margin-bottom: 4px;
+        border-radius: 6px;
+        line-height: 1.6;
+        font-size: 14px;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .trans-line:hover {
+        background: #161b22;
+      }
+
+      .trans-time {
+        color: #58a6ff;
+        font-size: 12px;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+        margin-right: 8px;
+      }
+
+      .trans-text {
+        color: #e6edf3;
+      }
+
+      .trans-line.new {
+        background: #1f6feb15;
+        border-left: 3px solid #1f6feb;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
         }
-
-        .header h1 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #e6edf3;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
 
-        .source-badges {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+      /* Analysis */
+      .analysis-content {
+        line-height: 1.7;
+        font-size: 14px;
+      }
+
+      .analysis-content h1 {
+        font-size: 18px;
+        color: #58a6ff;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #30363d;
+      }
+
+      .analysis-content h2 {
+        font-size: 15px;
+        color: #d2a8ff;
+        margin-top: 20px;
+        margin-bottom: 8px;
+      }
+
+      .analysis-content h3 {
+        font-size: 14px;
+        color: #79c0ff;
+        margin-top: 16px;
+        margin-bottom: 6px;
+      }
+
+      .analysis-content ul,
+      .analysis-content ol {
+        padding-left: 20px;
+        margin-bottom: 8px;
+      }
+
+      .analysis-content li {
+        margin-bottom: 4px;
+        color: #c9d1d9;
+      }
+
+      .analysis-content strong {
+        color: #e6edf3;
+      }
+
+      .analysis-content code {
+        background: #1f2937;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #f0883e;
+      }
+
+      .analysis-content p {
+        margin-bottom: 8px;
+      }
+
+      /* Analyst progress */
+      .analyst-timer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .analyst-countdown {
+        font-size: 11px;
+        color: #8b949e;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+      }
+
+      .analyst-progress-track {
+        height: 3px;
+        background: #21262d;
+        width: 100%;
+      }
+
+      .analyst-progress-bar {
+        height: 100%;
+        background: #d97757;
+        width: 0%;
+        transition: width 1s linear;
+      }
+
+      .analyst-progress-bar.analyzing {
+        background: #d97757;
+        animation: barPulse 1s ease-in-out infinite;
+      }
+
+      @keyframes barPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
+      /* Empty state */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #484f58;
+        gap: 12px;
+      }
+
+      .empty-state svg {
+        width: 48px;
+        height: 48px;
+        opacity: 0.3;
+      }
+
+      .empty-state p {
+        font-size: 14px;
+      }
+
+      /* Scrollbar */
+      .panel-content::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .panel-content::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .panel-content::-webkit-scrollbar-thumb {
+        background: #30363d;
+        border-radius: 3px;
+      }
+
+      .panel-content::-webkit-scrollbar-thumb:hover {
+        background: #484f58;
+      }
+
+      /* Selects */
+      #langSelect {
+        background: #21262d;
+        color: #e6edf3;
+        border: 1px solid #30363d;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        max-width: 220px;
+        text-overflow: ellipsis;
+      }
+
+      #micSelect {
+        background: transparent;
+        color: #c9d1d9;
+        border: none;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        max-width: 180px;
+        text-overflow: ellipsis;
+        padding: 0;
+      }
+
+      #langSelect:hover {
+        border-color: #58a6ff;
+      }
+      #langSelect:focus {
+        outline: none;
+        border-color: #58a6ff;
+      }
+      #micSelect:hover {
+        color: #e6edf3;
+      }
+      #micSelect:focus {
+        outline: none;
+      }
+
+      /* Reset button */
+      #resetBtn {
+        background: #da3633;
+        color: #fff;
+        border: none;
+        padding: 5px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      #resetBtn:hover {
+        background: #f85149;
+      }
+
+      /* Loading spinner */
+      .loading {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #30363d;
+        border-top: 2px solid #58a6ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-left: 8px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
+      }
 
-        .source-badge {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: #21262d;
-            border: 1px solid #30363d;
-            padding: 4px 10px;
-            border-radius: 16px;
-            font-size: 12px;
-            color: #8b949e;
+      /* Loader overlay */
+      .loader-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #0d1117;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease;
+      }
+
+      .loader-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loader-logo {
+        width: 120px;
+        height: auto;
+        margin-bottom: 32px;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
         }
-
-        .source-badge .dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #3fb950;
-            animation: pulse 2s infinite;
-            flex-shrink: 0;
+        50% {
+          opacity: 0.6;
+          transform: scale(0.95);
         }
+      }
 
-        .source-badge .dot.inactive { background: #f85149; animation: none; }
+      .loader-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #21262d;
+        border-top: 3px solid #d97757;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
 
-        .source-badge .icon {
-            font-size: 13px;
-            line-height: 1;
-        }
-
-        .source-badge .label {
-            color: #c9d1d9;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #3fb950;
-            animation: pulse 2s infinite;
-            display: none;
-        }
-
-        .status-dot.inactive { background: #f85149; animation: none; }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            font-size: 13px;
-            color: #8b949e;
-        }
-
-        .segment-count {
-            background: #21262d;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-
-        /* Main layout */
-        .main {
-            display: flex;
-            height: calc(100vh - 56px);
-        }
-
-        /* Panels */
-        .panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .panel:first-child {
-            border-right: 1px solid #30363d;
-        }
-
-        .panel-header {
-            background: #161b22;
-            padding: 10px 20px;
-            border-bottom: 1px solid #30363d;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-height: 44px;
-        }
-
-        .panel-title {
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #8b949e;
-        }
-
-        .panel-badge {
-            font-size: 11px;
-            background: #1f6feb33;
-            color: #58a6ff;
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-
-        .panel-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px 20px;
-            scroll-behavior: smooth;
-        }
-
-        /* Transcription */
-        .trans-line {
-            padding: 8px 12px;
-            margin-bottom: 4px;
-            border-radius: 6px;
-            line-height: 1.6;
-            font-size: 14px;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .trans-line:hover {
-            background: #161b22;
-        }
-
-        .trans-time {
-            color: #58a6ff;
-            font-size: 12px;
-            font-family: 'Cascadia Code', 'Fira Code', monospace;
-            margin-right: 8px;
-        }
-
-        .trans-text {
-            color: #e6edf3;
-        }
-
-        .trans-line.new {
-            background: #1f6feb15;
-            border-left: 3px solid #1f6feb;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Analysis */
-        .analysis-content {
-            line-height: 1.7;
-            font-size: 14px;
-        }
-
-        .analysis-content h1 {
-            font-size: 18px;
-            color: #58a6ff;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #30363d;
-        }
-
-        .analysis-content h2 {
-            font-size: 15px;
-            color: #d2a8ff;
-            margin-top: 20px;
-            margin-bottom: 8px;
-        }
-
-        .analysis-content h3 {
-            font-size: 14px;
-            color: #79c0ff;
-            margin-top: 16px;
-            margin-bottom: 6px;
-        }
-
-        .analysis-content ul, .analysis-content ol {
-            padding-left: 20px;
-            margin-bottom: 8px;
-        }
-
-        .analysis-content li {
-            margin-bottom: 4px;
-            color: #c9d1d9;
-        }
-
-        .analysis-content strong {
-            color: #e6edf3;
-        }
-
-        .analysis-content code {
-            background: #1f2937;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 13px;
-            color: #f0883e;
-        }
-
-        .analysis-content p {
-            margin-bottom: 8px;
-        }
-
-        /* Empty state */
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #484f58;
-            gap: 12px;
-        }
-
-        .empty-state svg {
-            width: 48px;
-            height: 48px;
-            opacity: 0.3;
-        }
-
-        .empty-state p {
-            font-size: 14px;
-        }
-
-        /* Scrollbar */
-        .panel-content::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .panel-content::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .panel-content::-webkit-scrollbar-thumb {
-            background: #30363d;
-            border-radius: 3px;
-        }
-
-        .panel-content::-webkit-scrollbar-thumb:hover {
-            background: #484f58;
-        }
-
-        /* Mic select */
-        #micSelect {
-            background: #21262d;
-            color: #e6edf3;
-            border: 1px solid #30363d;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            max-width: 220px;
-            text-overflow: ellipsis;
-        }
-
-        #micSelect:hover { border-color: #58a6ff; }
-        #micSelect:focus { outline: none; border-color: #58a6ff; }
-
-        /* Reset button */
-        #resetBtn {
-            background: #da3633;
-            color: #fff;
-            border: none;
-            padding: 5px 14px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        #resetBtn:hover { background: #f85149; }
-
-        /* Loading spinner */
-        .loading {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid #30363d;
-            border-top: 2px solid #58a6ff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 8px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+      .loader-text {
+        color: #8b949e;
+        font-size: 14px;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
+    <!-- Loader overlay -->
+    <div class="loader-overlay" id="loaderOverlay">
+      <img src="/images/logo%20transparant%20for%20black%20background.png" alt="Logo" class="loader-logo" />
+      <div class="loader-spinner"></div>
+      <div class="loader-text" id="loaderText">Starting...</div>
+    </div>
+
     <div class="header">
-        <div class="header-left">
-            <div class="status-dot" id="statusDot"></div>
-            <h1>Meeting AI Analyser</h1>
-            <div class="source-badges">
-                <div class="source-badge" title="Capture de votre microphone">
-                    <span class="dot" id="micDot"></span>
-                    <span class="icon">&#127908;</span>
-                    <span class="label">Mon micro</span>
-                </div>
-                <div class="source-badge" title="Capture audio systeme (ce qui se dit dans la reunion)">
-                    <span class="dot" id="loopbackDot"></span>
-                    <span class="icon">&#128266;</span>
-                    <span class="label">Audio reunion</span>
-                </div>
+      <div class="header-left">
+        <div class="status-dot" id="statusDot"></div>
+        <img
+          src="/images/logo%20transparant%20for%20black%20background.png"
+          alt="Logo"
+          style="height: 32px; width: auto; margin-right: 4px"
+        />
+        <h1>Meeting AI Analyser</h1>
+        <div class="source-badges">
+          <div class="source-badge" title="Capturing your microphone">
+            <div class="audio-bars" id="micBars">
+              <div class="audio-bar"></div>
+              <div class="audio-bar"></div>
+              <div class="audio-bar"></div>
             </div>
-        </div>
-        <div class="header-right">
-            <select id="micSelect" title="Choisir le micro">
-                <option value="">Chargement micros...</option>
+            <span class="icon">&#127908;</span>
+            <select id="micSelect" title="Select microphone">
+              <option value="">No microphone</option>
             </select>
-            <button id="resetBtn" onclick="resetAll()">Reset</button>
-            <span id="segmentCount" class="segment-count">0 segments</span>
-            <span id="lastUpdate">--:--:--</span>
+          </div>
+          <div class="source-badge" title="System audio capture (what others say in the meeting)">
+            <div class="audio-bars" id="loopbackBars">
+              <div class="audio-bar"></div>
+              <div class="audio-bar"></div>
+              <div class="audio-bar"></div>
+            </div>
+            <span class="icon">&#128266;</span>
+            <span class="label">Meeting audio</span>
+          </div>
         </div>
+      </div>
+      <div class="header-right">
+        <select id="langSelect" title="Transcription language">
+          <option value="en">🌐 English</option>
+          <option value="fr">🌐 Français</option>
+          <option value="es">🌐 Español</option>
+          <option value="de">🌐 Deutsch</option>
+          <option value="it">🌐 Italiano</option>
+          <option value="pt">🌐 Português</option>
+          <option value="nl">🌐 Nederlands</option>
+          <option value="ja">🌐 日本語</option>
+          <option value="zh">🌐 中文</option>
+          <option value="ko">🌐 한국어</option>
+          <option value="ru">🌐 Русский</option>
+          <option value="ar">🌐 العربية</option>
+        </select>
+        <button id="resetBtn" onclick="resetAll()">Reset</button>
+        <span id="segmentCount" class="segment-count">0 segments</span>
+        <span id="lastUpdate">--:--:--</span>
+      </div>
     </div>
 
     <div class="main">
-        <!-- Transcription panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Transcription</span>
-                <span class="panel-badge" id="transStatus">Live</span>
-            </div>
-            <div class="panel-content" id="transcriptionPanel">
-                <div class="empty-state" id="transEmpty">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                        <line x1="12" y1="19" x2="12" y2="22"/>
-                    </svg>
-                    <p>En attente de transcription...</p>
-                </div>
-            </div>
+      <!-- Transcription panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Transcription</span>
+          <span class="panel-badge" id="transStatus">Live</span>
         </div>
+        <div class="panel-content" id="transcriptionPanel">
+          <div class="empty-state" id="transEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+            </svg>
+            <p>Listening...</p>
+          </div>
+        </div>
+      </div>
 
-        <!-- Analysis panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Analyse Claude</span>
-                <span class="panel-badge" id="analysisStatus">En attente</span>
-            </div>
-            <div class="panel-content" id="analysisPanel">
-                <div class="empty-state" id="analysisEmpty">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 17l10 5 10-5"/>
-                        <path d="M2 12l10 5 10-5"/>
-                    </svg>
-                    <p>L'analyse apparaitra apres le premier segment...</p>
-                </div>
-            </div>
+      <!-- Analysis panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Claude Analysis</span>
+          <div class="analyst-timer">
+            <span class="panel-badge" id="analysisStatus">Waiting</span>
+            <span id="analystCountdown" class="analyst-countdown"></span>
+          </div>
         </div>
+        <div class="analyst-progress-track">
+          <div class="analyst-progress-bar" id="analystBar"></div>
+        </div>
+        <div class="panel-content" id="analysisPanel">
+          <div class="empty-state" id="analysisEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+            <p>Analysis will appear after the first segment...</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        const transcriptionPanel = document.getElementById('transcriptionPanel');
-        const analysisPanel = document.getElementById('analysisPanel');
-        const transEmpty = document.getElementById('transEmpty');
-        const analysisEmpty = document.getElementById('analysisEmpty');
-        const statusDot = document.getElementById('statusDot');
-        const segmentCount = document.getElementById('segmentCount');
-        const lastUpdate = document.getElementById('lastUpdate');
-        const transStatus = document.getElementById('transStatus');
-        const analysisStatus = document.getElementById('analysisStatus');
+      const transcriptionPanel = document.getElementById("transcriptionPanel");
+      const analysisPanel = document.getElementById("analysisPanel");
+      const transEmpty = document.getElementById("transEmpty");
+      const analysisEmpty = document.getElementById("analysisEmpty");
+      const statusDot = document.getElementById("statusDot");
+      const segmentCount = document.getElementById("segmentCount");
+      const lastUpdate = document.getElementById("lastUpdate");
+      const transStatus = document.getElementById("transStatus");
+      const analysisStatus = document.getElementById("analysisStatus");
 
-        let lastTransContent = '';
-        let lastAnalysisContent = '';
-        let autoScroll = true;
+      let lastTransContent = "";
+      let lastAnalysisContent = "";
+      let autoScroll = true;
 
-        // Detecter si l'utilisateur scroll manuellement
-        transcriptionPanel.addEventListener('scroll', () => {
-            const { scrollTop, scrollHeight, clientHeight } = transcriptionPanel;
-            autoScroll = scrollHeight - scrollTop - clientHeight < 100;
-        });
+      // Heartbeat: ping server every 5s to signal browser is open
+      setInterval(() => {
+        fetch("/api/heartbeat").catch(() => {});
+      }, 5000);
 
-        function parseTranscription(text) {
-            const lines = text.split('\n').filter(l => l.trim());
-            // Ignorer la premiere ligne (header)
-            return lines.filter(l => l.startsWith('['));
+      // Loader: poll /api/status until app is ready
+      (function checkStatus() {
+        const overlay = document.getElementById("loaderOverlay");
+        const loaderText = document.getElementById("loaderText");
+        function poll() {
+          fetch("/api/status")
+            .then((r) => r.json())
+            .then((data) => {
+              loaderText.textContent = data.message || "Loading...";
+              if (data.ready) {
+                overlay.classList.add("hidden");
+                setTimeout(() => overlay.remove(), 600);
+              } else {
+                setTimeout(poll, 500);
+              }
+            })
+            .catch(() => {
+              loaderText.textContent = "Connecting to server...";
+              setTimeout(poll, 1000);
+            });
         }
+        poll();
+      })();
 
-        function renderTranscription(text) {
-            if (!text || text.length < 20) return;
+      // Detect manual user scroll
+      transcriptionPanel.addEventListener("scroll", () => {
+        const { scrollTop, scrollHeight, clientHeight } = transcriptionPanel;
+        autoScroll = scrollHeight - scrollTop - clientHeight < 100;
+      });
 
-            const lines = parseTranscription(text);
-            if (lines.length === 0) return;
+      function parseTranscription(text) {
+        const lines = text.split("\n").filter((l) => l.trim());
+        // Skip first line (header)
+        return lines.filter((l) => l.startsWith("["));
+      }
 
-            transEmpty.style.display = 'none';
+      function renderTranscription(text) {
+        if (!text || text.length < 20) return;
 
-            const html = lines.map((line, i) => {
-                const match = line.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*(.*)/);
-                if (!match) return '';
-                const isNew = i >= lines.length - 3;
-                return `<div class="trans-line${isNew ? ' new' : ''}">
+        const lines = parseTranscription(text);
+        if (lines.length === 0) return;
+
+        transEmpty.style.display = "none";
+
+        const html = lines
+          .map((line, i) => {
+            const match = line.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*(.*)/);
+            if (!match) return "";
+            const isNew = i >= lines.length - 3;
+            return `<div class="trans-line${isNew ? " new" : ""}">
                     <span class="trans-time">${match[1]}</span>
                     <span class="trans-text">${escapeHtml(match[2])}</span>
                 </div>`;
-            }).join('');
+          })
+          .join("");
 
-            transcriptionPanel.innerHTML = html;
-            segmentCount.textContent = `${lines.length} segments`;
-            lastUpdate.textContent = new Date().toLocaleTimeString('fr-FR');
+        transcriptionPanel.innerHTML = html;
+        segmentCount.textContent = `${lines.length} segments`;
+        lastUpdate.textContent = new Date().toLocaleTimeString("en-US");
 
-            if (autoScroll) {
-                transcriptionPanel.scrollTop = transcriptionPanel.scrollHeight;
+        if (autoScroll) {
+          transcriptionPanel.scrollTop = transcriptionPanel.scrollHeight;
+        }
+      }
+
+      function renderAnalysis(text) {
+        if (!text || text.length < 10) return;
+
+        analysisEmpty.style.display = "none";
+        analysisStatus.textContent = "Updated";
+
+        // Basic Markdown -> HTML
+        let html = escapeHtml(text);
+
+        // Headers
+        html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+        html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+        html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
+
+        // Bold / italic
+        html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+
+        // Code
+        html = html.replace(/`(.+?)`/g, "<code>$1</code>");
+
+        // Lists
+        html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
+        html = html.replace(/^(\d+)\. (.+)$/gm, "<li>$2</li>");
+        html = html.replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>");
+
+        // Paragraphs
+        html = html.replace(/\n\n/g, "</p><p>");
+        html = '<div class="analysis-content"><p>' + html + "</p></div>";
+
+        analysisPanel.innerHTML = html;
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      // SSE streaming
+      function connectSSE() {
+        const evtSource = new EventSource("/api/stream");
+
+        evtSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          statusDot.classList.remove("inactive");
+
+          if (data.type === "transcription" && data.content !== lastTransContent) {
+            lastTransContent = data.content;
+            transStatus.textContent = "Live";
+            renderTranscription(data.content);
+          }
+
+          if (data.type === "analysis" && data.content !== lastAnalysisContent) {
+            lastAnalysisContent = data.content;
+            renderAnalysis(data.content);
+          }
+        };
+
+        evtSource.onerror = () => {
+          statusDot.classList.add("inactive");
+          updateSourceBadges(false, false);
+          transStatus.textContent = "Disconnected";
+          setTimeout(() => {
+            evtSource.close();
+            connectSSE();
+          }, 5000);
+        };
+      }
+
+      // Fallback polling if SSE fails
+      async function pollData() {
+        try {
+          const [transRes, analysisRes] = await Promise.all([fetch("/api/transcription"), fetch("/api/analysis")]);
+          const trans = await transRes.json();
+          const analysis = await analysisRes.json();
+
+          if (trans.content !== lastTransContent) {
+            lastTransContent = trans.content;
+            renderTranscription(trans.content);
+          }
+          if (analysis.content !== lastAnalysisContent) {
+            lastAnalysisContent = analysis.content;
+            renderAnalysis(analysis.content);
+          }
+          statusDot.classList.remove("inactive");
+          loopbackDot.classList.remove("inactive");
+        } catch {
+          statusDot.classList.add("inactive");
+          updateSourceBadges(false, false);
+        }
+      }
+
+      // Reset all
+      async function resetAll() {
+        if (!confirm("Clear transcription and analysis?")) return;
+        await fetch("/api/reset", { method: "POST" });
+        lastTransContent = "";
+        lastAnalysisContent = "";
+        transcriptionPanel.innerHTML = transEmpty.outerHTML;
+        analysisPanel.innerHTML = analysisEmpty.outerHTML;
+        segmentCount.textContent = "0 segments";
+        analysisStatus.textContent = "Waiting";
+      }
+
+      // Stop all processes when page closes
+      window.addEventListener("beforeunload", () => {
+        navigator.sendBeacon("/api/stop");
+      });
+
+      // Source badges
+      function updateSourceBadges(micActive, serverConnected) {
+        micBars.classList.toggle("inactive", !micActive);
+        loopbackBars.classList.toggle("inactive", !serverConnected);
+      }
+
+      // Mic selector
+      const micSelect = document.getElementById("micSelect");
+
+      async function loadDevices() {
+        try {
+          const res = await fetch("/api/devices");
+          const data = await res.json();
+          micSelect.innerHTML = '<option value="">-- No microphone --</option>';
+          for (const dev of data.devices) {
+            const opt = document.createElement("option");
+            opt.value = dev.id;
+            opt.textContent = `[${dev.id}] ${dev.name}`;
+            if (data.active !== null && dev.id === data.active) {
+              opt.selected = true;
             }
+            micSelect.appendChild(opt);
+          }
+          updateSourceBadges(data.active !== null, true);
+        } catch {
+          micSelect.innerHTML = '<option value="">Loading error</option>';
+          updateSourceBadges(false, false);
         }
+      }
 
-        function renderAnalysis(text) {
-            if (!text || text.length < 10) return;
-
-            analysisEmpty.style.display = 'none';
-            analysisStatus.textContent = 'Mis a jour';
-
-            // Markdown basique -> HTML
-            let html = escapeHtml(text);
-
-            // Headers
-            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-            // Bold / italic
-            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-            // Code
-            html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-
-            // Lists
-            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-            html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
-            html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-
-            // Paragraphs
-            html = html.replace(/\n\n/g, '</p><p>');
-            html = '<div class="analysis-content"><p>' + html + '</p></div>';
-
-            analysisPanel.innerHTML = html;
+      micSelect.addEventListener("change", async () => {
+        const micId = micSelect.value;
+        const hasMic = micId !== "";
+        const payload = hasMic ? { micDevice: parseInt(micId) } : {};
+        micSelect.disabled = true;
+        updateSourceBadges(hasMic, true);
+        try {
+          await fetch("/api/restart", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } finally {
+          setTimeout(() => {
+            micSelect.disabled = false;
+          }, 3000);
         }
+      });
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
+      // Audio level bars
+      const micBars = document.getElementById("micBars");
+      const loopbackBars = document.getElementById("loopbackBars");
 
-        // SSE streaming
-        function connectSSE() {
-            const evtSource = new EventSource('/api/stream');
-
-            evtSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                statusDot.classList.remove('inactive');
-
-                if (data.type === 'transcription' && data.content !== lastTransContent) {
-                    lastTransContent = data.content;
-                    transStatus.textContent = 'Live';
-                    renderTranscription(data.content);
-                }
-
-                if (data.type === 'analysis' && data.content !== lastAnalysisContent) {
-                    lastAnalysisContent = data.content;
-                    renderAnalysis(data.content);
-                }
-            };
-
-            evtSource.onerror = () => {
-                statusDot.classList.add('inactive');
-                updateSourceBadges(false, false);
-                transStatus.textContent = 'Deconnecte';
-                setTimeout(() => {
-                    evtSource.close();
-                    connectSSE();
-                }, 5000);
-            };
-        }
-
-        // Fallback polling si SSE echoue
-        async function pollData() {
-            try {
-                const [transRes, analysisRes] = await Promise.all([
-                    fetch('/api/transcription'),
-                    fetch('/api/analysis')
-                ]);
-                const trans = await transRes.json();
-                const analysis = await analysisRes.json();
-
-                if (trans.content !== lastTransContent) {
-                    lastTransContent = trans.content;
-                    renderTranscription(trans.content);
-                }
-                if (analysis.content !== lastAnalysisContent) {
-                    lastAnalysisContent = analysis.content;
-                    renderAnalysis(analysis.content);
-                }
-                statusDot.classList.remove('inactive');
-                loopbackDot.classList.remove('inactive');
-            } catch {
-                statusDot.classList.add('inactive');
-                updateSourceBadges(false, false);
-            }
-        }
-
-        // Reset tout
-        async function resetAll() {
-            if (!confirm('Effacer la transcription et l\'analyse ?')) return;
-            await fetch('/api/reset', { method: 'POST' });
-            lastTransContent = '';
-            lastAnalysisContent = '';
-            transcriptionPanel.innerHTML = transEmpty.outerHTML;
-            analysisPanel.innerHTML = analysisEmpty.outerHTML;
-            segmentCount.textContent = '0 segments';
-            analysisStatus.textContent = 'En attente';
-        }
-
-        // Arreter tous les processus quand on ferme la page
-        window.addEventListener('beforeunload', () => {
-            navigator.sendBeacon('/api/stop');
+      function animateBars(container, level) {
+        const bars = container.querySelectorAll(".audio-bar");
+        const clamped = Math.min(level * 15, 1); // normalize (RMS ~0.001-0.07)
+        const heights = [0.6, 1.0, 0.75]; // relative variation per bar
+        bars.forEach((bar, i) => {
+          const h = Math.max(2, clamped * 14 * heights[i] * (0.8 + Math.random() * 0.4));
+          bar.style.height = h + "px";
         });
+        container.classList.toggle("inactive", clamped < 0.01);
+      }
 
-        // Source badges
-        const micDot = document.getElementById('micDot');
-        const loopbackDot = document.getElementById('loopbackDot');
-
-        function updateSourceBadges(micActive, serverConnected) {
-            micDot.classList.toggle('inactive', !micActive);
-            loopbackDot.classList.toggle('inactive', !serverConnected);
+      async function pollLevels() {
+        try {
+          const res = await fetch("/api/levels");
+          const data = await res.json();
+          animateBars(micBars, data.mic || 0);
+          animateBars(loopbackBars, data.loopback || 0);
+        } catch {
+          animateBars(micBars, 0);
+          animateBars(loopbackBars, 0);
         }
+      }
 
-        // Mic selector
-        const micSelect = document.getElementById('micSelect');
+      setInterval(pollLevels, 200);
 
-        async function loadDevices() {
-            try {
-                const res = await fetch('/api/devices');
-                const data = await res.json();
-                micSelect.innerHTML = '<option value="">-- Pas de micro --</option>';
-                for (const dev of data.devices) {
-                    const opt = document.createElement('option');
-                    opt.value = dev.id;
-                    opt.textContent = `[${dev.id}] ${dev.name}`;
-                    if (data.active !== null && dev.id === data.active) {
-                        opt.selected = true;
-                    }
-                    micSelect.appendChild(opt);
-                }
-                updateSourceBadges(data.active !== null, true);
-            } catch {
-                micSelect.innerHTML = '<option value="">Erreur chargement</option>';
-                updateSourceBadges(false, false);
-            }
-        }
+      // Analyst progress bar
+      const analystBar = document.getElementById("analystBar");
+      const analystCountdown = document.getElementById("analystCountdown");
 
-        micSelect.addEventListener('change', async () => {
-            const micId = micSelect.value;
-            const hasMic = micId !== '';
-            const payload = hasMic ? { micDevice: parseInt(micId) } : {};
-            micSelect.disabled = true;
-            updateSourceBadges(hasMic, true);
-            try {
-                await fetch('/api/restart', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-            } finally {
-                setTimeout(() => { micSelect.disabled = false; }, 3000);
-            }
+      async function pollAnalyst() {
+        try {
+          const res = await fetch("/api/analyst");
+          const data = await res.json();
+          if (data.state === "analyzing") {
+            analystBar.style.width = "100%";
+            analystBar.classList.add("analyzing");
+            analystCountdown.textContent = "analyzing...";
+            analysisStatus.textContent = "Analyzing";
+          } else {
+            analystBar.classList.remove("analyzing");
+            analystBar.style.width = (data.progress * 100) + "%";
+            const r = data.remaining;
+            analystCountdown.textContent = r > 0 ? r + "s" : "";
+          }
+        } catch {}
+      }
+
+      setInterval(pollAnalyst, 1000);
+
+      // Language selector
+      const langSelect = document.getElementById("langSelect");
+      fetch("/api/status").then(r=>r.json()).then(data=>{
+        if(data.language) langSelect.value = data.language;
+      }).catch(()=>{});
+      langSelect.addEventListener("change", async () => {
+        await fetch("/api/language", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({language: langSelect.value}),
         });
+      });
 
-        // Demarrer
-        loadDevices();
-        connectSSE();
-        // Polling de secours toutes les 5s
-        setInterval(pollData, 5000);
+      // Start
+      loadDevices();
+      connectSSE();
+      // Backup polling every 5s
+      setInterval(pollData, 5000);
     </script>
-</body>
+  </body>
 </html>

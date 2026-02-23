@@ -1,7 +1,7 @@
 """
-Meeting AI Analyser - Serveur web local
-Interface de transcription live + analyse IA des reunions
-Lance sur http://localhost:5555
+Meeting AI Analyser - Local web server
+Live transcription interface + AI meeting analysis
+Runs on http://localhost:5555
 """
 import json
 import os
@@ -21,6 +21,24 @@ TRANSCRIBE_SCRIPT = os.path.join(SCRIPT_DIR, "live_transcribe.py")
 
 app = Flask(__name__, static_folder=SCRIPT_DIR)
 
+# Global status (injected by main.py)
+app_status = {"ready": False, "message": "Starting...", "language": "en", "model": "small"}
+
+# Heartbeat: browser pings every 5s, if no ping for 15s -> shutdown
+_last_heartbeat = time.time()
+_stop_event_ref = None
+
+
+def _heartbeat_watcher():
+    """Thread that monitors heartbeat and triggers shutdown if browser is closed"""
+    while True:
+        time.sleep(5)
+        if time.time() - _last_heartbeat > 15 and _stop_event_ref:
+            print("[SERVER] Browser disconnected, shutting down...")
+            _stop_event_ref.set()
+            time.sleep(1)
+            os._exit(0)
+
 
 def read_file_safe(filepath):
     if not os.path.exists(filepath):
@@ -35,6 +53,11 @@ def read_file_safe(filepath):
 @app.route("/")
 def index():
     return send_from_directory(SCRIPT_DIR, "index.html")
+
+
+@app.route("/images/<path:filename>")
+def serve_images(filename):
+    return send_from_directory(os.path.join(SCRIPT_DIR, "images"), filename)
 
 
 @app.route("/api/transcription")
@@ -53,7 +76,7 @@ def get_analysis():
 
 @app.route("/api/devices")
 def get_devices():
-    """Liste les peripheriques audio d'entree (micros)"""
+    """List audio input devices (microphones)"""
     try:
         import pyaudiowpatch as pyaudio
         p = pyaudio.PyAudio()
@@ -68,18 +91,24 @@ def get_devices():
                     "sampleRate": int(dev["defaultSampleRate"]),
                 })
         p.terminate()
-        # Detecter le mic actif (lire la cmdline du process live_transcribe)
+        # Detect active mic (shared variable in thread mode, or cmdline in process mode)
         active_mic = None
-        for proc in psutil.process_iter(["pid", "cmdline"]):
-            try:
-                cmdline = proc.info["cmdline"] or []
-                cmd_str = " ".join(cmdline)
-                if "live_transcribe" in cmd_str and "--mic-device" in cmd_str:
-                    idx = cmdline.index("--mic-device")
-                    active_mic = int(cmdline[idx + 1])
-                    break
-            except Exception:
-                pass
+        try:
+            import live_transcribe
+            active_mic = live_transcribe.active_mic_id
+        except Exception:
+            pass
+        if active_mic is None:
+            for proc in psutil.process_iter(["pid", "cmdline"]):
+                try:
+                    cmdline = proc.info["cmdline"] or []
+                    cmd_str = " ".join(cmdline)
+                    if "live_transcribe" in cmd_str and "--mic-device" in cmd_str:
+                        idx = cmdline.index("--mic-device")
+                        active_mic = int(cmdline[idx + 1])
+                        break
+                except Exception:
+                    pass
         return {"devices": devices, "active": active_mic}
     except Exception as e:
         return {"devices": [], "active": None, "error": str(e)}
@@ -87,10 +116,10 @@ def get_devices():
 
 @app.route("/api/restart", methods=["POST"])
 def restart_transcription():
-    """Relance live_transcribe.py avec un nouveau mic device"""
+    """Restart live_transcribe.py with a new mic device"""
     data = request.get_json() or {}
     mic_id = data.get("micDevice")
-    # Tuer le process live_transcribe actuel
+    # Kill current live_transcribe process
     my_pid = os.getpid()
     killed = False
     for proc in psutil.process_iter(["pid", "cmdline"]):
@@ -101,7 +130,7 @@ def restart_transcription():
                 killed = True
         except Exception:
             pass
-    # Relancer avec le nouveau mic
+    # Relaunch with new mic
     cmd = [sys.executable, TRANSCRIBE_SCRIPT]
     if mic_id is not None:
         cmd += ["--mic-device", str(mic_id)]
@@ -111,10 +140,10 @@ def restart_transcription():
 
 @app.route("/api/reset", methods=["POST"])
 def reset():
-    """Vide les fichiers de transcription et d'analyse"""
+    """Clear transcription and analysis files"""
     import datetime
     with open(TRANSCRIPTION_FILE, "w", encoding="utf-8") as f:
-        f.write(f"=== Transcription Live - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n\n")
+        f.write(f"=== Live Transcription - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n\n")
     with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
         f.write("")
     return {"status": "reset"}
@@ -122,7 +151,7 @@ def reset():
 
 @app.route("/api/stop")
 def stop():
-    """Arrete tous les processus Python Meeting AI Analyser"""
+    """Stop all Meeting AI Analyser Python processes"""
     subprocess.run(
         'taskkill /F /FI "WINDOWTITLE eq Meeting*" >nul 2>&1',
         shell=True,
@@ -135,14 +164,63 @@ def stop():
                 proc.kill()
         except Exception:
             pass
-    # Se tuer soi-meme apres un delai
+    # Kill self after delay
     threading.Timer(1, lambda: os._exit(0)).start()
     return {"status": "stopped"}
 
 
+@app.route("/api/language", methods=["POST"])
+def set_language():
+    data = request.get_json() or {}
+    lang = data.get("language")
+    if not lang:
+        return {"error": "missing language"}, 400
+    try:
+        import live_transcribe
+        live_transcribe.active_language = lang
+    except Exception:
+        pass
+    app_status["language"] = lang
+    return {"status": "ok", "language": lang}
+
+
+@app.route("/api/analyst")
+def analyst_info():
+    try:
+        import analyst
+        s = analyst.analyst_status
+        now = time.time()
+        remaining = max(0, s["next_run"] - now)
+        progress = 1 - (remaining / s["interval"]) if s["interval"] > 0 else 1
+        return {"state": s["state"], "remaining": round(remaining), "progress": round(progress, 3), "interval": s["interval"]}
+    except Exception:
+        return {"state": "unknown", "remaining": 0, "progress": 0, "interval": 60}
+
+
+@app.route("/api/levels")
+def levels():
+    try:
+        import live_transcribe
+        return live_transcribe.audio_levels
+    except Exception:
+        return {"loopback": 0.0, "mic": 0.0}
+
+
+@app.route("/api/status")
+def status():
+    return app_status
+
+
+@app.route("/api/heartbeat")
+def heartbeat():
+    global _last_heartbeat
+    _last_heartbeat = time.time()
+    return {"status": "ok"}
+
+
 @app.route("/api/stream")
 def stream():
-    """SSE endpoint pour le streaming en temps reel"""
+    """SSE endpoint for real-time streaming"""
     def generate():
         last_trans_mtime = 0
         last_analysis_mtime = 0
@@ -168,11 +246,19 @@ def stream():
 
 
 def start(stop_event=None, port=5555):
-    """Point d'entree pour le mode module (appele depuis main.py en thread)"""
-    print(f"[SERVER] Meeting AI Analyser disponible sur http://localhost:{port}")
+    """Entry point for module mode (called from main.py as thread)"""
+    global _stop_event_ref, _last_heartbeat
+    _stop_event_ref = stop_event
+    _last_heartbeat = time.time()
+    # Start heartbeat watcher
+    t = threading.Thread(target=_heartbeat_watcher, daemon=True)
+    t.start()
+    print(f"[SERVER] Meeting AI Analyser available at http://localhost:{port}")
     app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":
-    print(f"[SERVER] Meeting AI Analyser disponible sur http://localhost:5555")
+    app_status["ready"] = True
+    app_status["message"] = "Ready"
+    print(f"[SERVER] Meeting AI Analyser available at http://localhost:5555")
     app.run(host="127.0.0.1", port=5555, debug=False, use_reloader=False)

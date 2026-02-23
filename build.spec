@@ -1,24 +1,24 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec pour Meeting AI Analyser"""
+"""PyInstaller spec for Meeting AI Analyser"""
 import os
 import site
 
 block_cipher = None
 
-# Trouver les binaires CTranslate2 et NVIDIA
+# Find CTranslate2 and NVIDIA binaries
 site_packages = site.getsitepackages()[0]
 ct2_path = os.path.join(site_packages, "ctranslate2")
 nvidia_cublas = os.path.join(site_packages, "nvidia", "cublas", "bin")
 nvidia_cudnn = os.path.join(site_packages, "nvidia", "cudnn", "bin")
 
 binaries = []
-# CTranslate2 libs
+# CTranslate2 libraries
 if os.path.isdir(ct2_path):
     for f in os.listdir(ct2_path):
         if f.endswith((".dll", ".so", ".pyd")):
             binaries.append((os.path.join(ct2_path, f), "ctranslate2"))
 
-# NVIDIA CUDA (optionnel)
+# NVIDIA CUDA (optional)
 for nvidia_dir in [nvidia_cublas, nvidia_cudnn]:
     if os.path.isdir(nvidia_dir):
         for f in os.listdir(nvidia_dir):
@@ -32,6 +32,7 @@ a = Analysis(
     datas=[
         ('index.html', '.'),
         ('assets/app.ico', 'assets'),
+        ('images', 'images'),
     ],
     hiddenimports=[
         'faster_whisper',
