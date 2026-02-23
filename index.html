@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting AI Analyser - Neoteem</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+
+        .source-badges {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .source-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            color: #8b949e;
+        }
+
+        .source-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #3fb950;
+            animation: pulse 2s infinite;
+            flex-shrink: 0;
+        }
+
+        .source-badge .dot.inactive { background: #f85149; animation: none; }
+
+        .source-badge .icon {
+            font-size: 13px;
+            line-height: 1;
+        }
+
+        .source-badge .label {
+            color: #c9d1d9;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3fb950;
+            animation: pulse 2s infinite;
+            display: none;
+        }
+
+        .status-dot.inactive { background: #f85149; animation: none; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+            color: #8b949e;
+        }
+
+        .segment-count {
+            background: #21262d;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        /* Main layout */
+        .main {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+
+        /* Panels */
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel:first-child {
+            border-right: 1px solid #30363d;
+        }
+
+        .panel-header {
+            background: #161b22;
+            padding: 10px 20px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 44px;
+        }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #8b949e;
+        }
+
+        .panel-badge {
+            font-size: 11px;
+            background: #1f6feb33;
+            color: #58a6ff;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            scroll-behavior: smooth;
+        }
+
+        /* Transcription */
+        .trans-line {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            line-height: 1.6;
+            font-size: 14px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .trans-line:hover {
+            background: #161b22;
+        }
+
+        .trans-time {
+            color: #58a6ff;
+            font-size: 12px;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            margin-right: 8px;
+        }
+
+        .trans-text {
+            color: #e6edf3;
+        }
+
+        .trans-line.new {
+            background: #1f6feb15;
+            border-left: 3px solid #1f6feb;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Analysis */
+        .analysis-content {
+            line-height: 1.7;
+            font-size: 14px;
+        }
+
+        .analysis-content h1 {
+            font-size: 18px;
+            color: #58a6ff;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .analysis-content h2 {
+            font-size: 15px;
+            color: #d2a8ff;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+
+        .analysis-content h3 {
+            font-size: 14px;
+            color: #79c0ff;
+            margin-top: 16px;
+            margin-bottom: 6px;
+        }
+
+        .analysis-content ul, .analysis-content ol {
+            padding-left: 20px;
+            margin-bottom: 8px;
+        }
+
+        .analysis-content li {
+            margin-bottom: 4px;
+            color: #c9d1d9;
+        }
+
+        .analysis-content strong {
+            color: #e6edf3;
+        }
+
+        .analysis-content code {
+            background: #1f2937;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #f0883e;
+        }
+
+        .analysis-content p {
+            margin-bottom: 8px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #484f58;
+            gap: 12px;
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            opacity: 0.3;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Scrollbar */
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .panel-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .panel-content::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px;
+        }
+
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: #484f58;
+        }
+
+        /* Mic select */
+        #micSelect {
+            background: #21262d;
+            color: #e6edf3;
+            border: 1px solid #30363d;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            max-width: 220px;
+            text-overflow: ellipsis;
+        }
+
+        #micSelect:hover { border-color: #58a6ff; }
+        #micSelect:focus { outline: none; border-color: #58a6ff; }
+
+        /* Reset button */
+        #resetBtn {
+            background: #da3633;
+            color: #fff;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #resetBtn:hover { background: #f85149; }
+
+        /* Loading spinner */
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #30363d;
+            border-top: 2px solid #58a6ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <div class="status-dot" id="statusDot"></div>
+            <h1>Meeting AI Analyser</h1>
+            <div class="source-badges">
+                <div class="source-badge" title="Capture de votre microphone">
+                    <span class="dot" id="micDot"></span>
+                    <span class="icon">&#127908;</span>
+                    <span class="label">Mon micro</span>
+                </div>
+                <div class="source-badge" title="Capture audio systeme (ce qui se dit dans la reunion)">
+                    <span class="dot" id="loopbackDot"></span>
+                    <span class="icon">&#128266;</span>
+                    <span class="label">Audio reunion</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <select id="micSelect" title="Choisir le micro">
+                <option value="">Chargement micros...</option>
+            </select>
+            <button id="resetBtn" onclick="resetAll()">Reset</button>
+            <span id="segmentCount" class="segment-count">0 segments</span>
+            <span id="lastUpdate">--:--:--</span>
+        </div>
+    </div>
+
+    <div class="main">
+        <!-- Transcription panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Transcription</span>
+                <span class="panel-badge" id="transStatus">Live</span>
+            </div>
+            <div class="panel-content" id="transcriptionPanel">
+                <div class="empty-state" id="transEmpty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                    </svg>
+                    <p>En attente de transcription...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Analyse Claude</span>
+                <span class="panel-badge" id="analysisStatus">En attente</span>
+            </div>
+            <div class="panel-content" id="analysisPanel">
+                <div class="empty-state" id="analysisEmpty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    <p>L'analyse apparaitra apres le premier segment...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const transcriptionPanel = document.getElementById('transcriptionPanel');
+        const analysisPanel = document.getElementById('analysisPanel');
+        const transEmpty = document.getElementById('transEmpty');
+        const analysisEmpty = document.getElementById('analysisEmpty');
+        const statusDot = document.getElementById('statusDot');
+        const segmentCount = document.getElementById('segmentCount');
+        const lastUpdate = document.getElementById('lastUpdate');
+        const transStatus = document.getElementById('transStatus');
+        const analysisStatus = document.getElementById('analysisStatus');
+
+        let lastTransContent = '';
+        let lastAnalysisContent = '';
+        let autoScroll = true;
+
+        // Detecter si l'utilisateur scroll manuellement
+        transcriptionPanel.addEventListener('scroll', () => {
+            const { scrollTop, scrollHeight, clientHeight } = transcriptionPanel;
+            autoScroll = scrollHeight - scrollTop - clientHeight < 100;
+        });
+
+        function parseTranscription(text) {
+            const lines = text.split('\n').filter(l => l.trim());
+            // Ignorer la premiere ligne (header)
+            return lines.filter(l => l.startsWith('['));
+        }
+
+        function renderTranscription(text) {
+            if (!text || text.length < 20) return;
+
+            const lines = parseTranscription(text);
+            if (lines.length === 0) return;
+
+            transEmpty.style.display = 'none';
+
+            const html = lines.map((line, i) => {
+                const match = line.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*(.*)/);
+                if (!match) return '';
+                const isNew = i >= lines.length - 3;
+                return `<div class="trans-line${isNew ? ' new' : ''}">
+                    <span class="trans-time">${match[1]}</span>
+                    <span class="trans-text">${escapeHtml(match[2])}</span>
+                </div>`;
+            }).join('');
+
+            transcriptionPanel.innerHTML = html;
+            segmentCount.textContent = `${lines.length} segments`;
+            lastUpdate.textContent = new Date().toLocaleTimeString('fr-FR');
+
+            if (autoScroll) {
+                transcriptionPanel.scrollTop = transcriptionPanel.scrollHeight;
+            }
+        }
+
+        function renderAnalysis(text) {
+            if (!text || text.length < 10) return;
+
+            analysisEmpty.style.display = 'none';
+            analysisStatus.textContent = 'Mis a jour';
+
+            // Markdown basique -> HTML
+            let html = escapeHtml(text);
+
+            // Headers
+            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+            // Bold / italic
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+            // Code
+            html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+
+            // Lists
+            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+            html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+            // Paragraphs
+            html = html.replace(/\n\n/g, '</p><p>');
+            html = '<div class="analysis-content"><p>' + html + '</p></div>';
+
+            analysisPanel.innerHTML = html;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // SSE streaming
+        function connectSSE() {
+            const evtSource = new EventSource('/api/stream');
+
+            evtSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                statusDot.classList.remove('inactive');
+
+                if (data.type === 'transcription' && data.content !== lastTransContent) {
+                    lastTransContent = data.content;
+                    transStatus.textContent = 'Live';
+                    renderTranscription(data.content);
+                }
+
+                if (data.type === 'analysis' && data.content !== lastAnalysisContent) {
+                    lastAnalysisContent = data.content;
+                    renderAnalysis(data.content);
+                }
+            };
+
+            evtSource.onerror = () => {
+                statusDot.classList.add('inactive');
+                updateSourceBadges(false, false);
+                transStatus.textContent = 'Deconnecte';
+                setTimeout(() => {
+                    evtSource.close();
+                    connectSSE();
+                }, 5000);
+            };
+        }
+
+        // Fallback polling si SSE echoue
+        async function pollData() {
+            try {
+                const [transRes, analysisRes] = await Promise.all([
+                    fetch('/api/transcription'),
+                    fetch('/api/analysis')
+                ]);
+                const trans = await transRes.json();
+                const analysis = await analysisRes.json();
+
+                if (trans.content !== lastTransContent) {
+                    lastTransContent = trans.content;
+                    renderTranscription(trans.content);
+                }
+                if (analysis.content !== lastAnalysisContent) {
+                    lastAnalysisContent = analysis.content;
+                    renderAnalysis(analysis.content);
+                }
+                statusDot.classList.remove('inactive');
+                loopbackDot.classList.remove('inactive');
+            } catch {
+                statusDot.classList.add('inactive');
+                updateSourceBadges(false, false);
+            }
+        }
+
+        // Reset tout
+        async function resetAll() {
+            if (!confirm('Effacer la transcription et l\'analyse ?')) return;
+            await fetch('/api/reset', { method: 'POST' });
+            lastTransContent = '';
+            lastAnalysisContent = '';
+            transcriptionPanel.innerHTML = transEmpty.outerHTML;
+            analysisPanel.innerHTML = analysisEmpty.outerHTML;
+            segmentCount.textContent = '0 segments';
+            analysisStatus.textContent = 'En attente';
+        }
+
+        // Arreter tous les processus quand on ferme la page
+        window.addEventListener('beforeunload', () => {
+            navigator.sendBeacon('/api/stop');
+        });
+
+        // Source badges
+        const micDot = document.getElementById('micDot');
+        const loopbackDot = document.getElementById('loopbackDot');
+
+        function updateSourceBadges(micActive, serverConnected) {
+            micDot.classList.toggle('inactive', !micActive);
+            loopbackDot.classList.toggle('inactive', !serverConnected);
+        }
+
+        // Mic selector
+        const micSelect = document.getElementById('micSelect');
+
+        async function loadDevices() {
+            try {
+                const res = await fetch('/api/devices');
+                const data = await res.json();
+                micSelect.innerHTML = '<option value="">-- Pas de micro --</option>';
+                for (const dev of data.devices) {
+                    const opt = document.createElement('option');
+                    opt.value = dev.id;
+                    opt.textContent = `[${dev.id}] ${dev.name}`;
+                    if (data.active !== null && dev.id === data.active) {
+                        opt.selected = true;
+                    }
+                    micSelect.appendChild(opt);
+                }
+                updateSourceBadges(data.active !== null, true);
+            } catch {
+                micSelect.innerHTML = '<option value="">Erreur chargement</option>';
+                updateSourceBadges(false, false);
+            }
+        }
+
+        micSelect.addEventListener('change', async () => {
+            const micId = micSelect.value;
+            const hasMic = micId !== '';
+            const payload = hasMic ? { micDevice: parseInt(micId) } : {};
+            micSelect.disabled = true;
+            updateSourceBadges(hasMic, true);
+            try {
+                await fetch('/api/restart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            } finally {
+                setTimeout(() => { micSelect.disabled = false; }, 3000);
+            }
+        });
+
+        // Demarrer
+        loadDevices();
+        connectSSE();
+        // Polling de secours toutes les 5s
+        setInterval(pollData, 5000);
+    </script>
+</body>
+</html>

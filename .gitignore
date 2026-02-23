@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+
+# Build PyInstaller
+build/
+dist/
+
+# Fichiers generes
+assets/app.ico
+temp_prompt.txt
+
+# Business (prive)
+PLAN_COMMERCIAL.md
+
+# Fichiers runtime (transcription en cours)
+transcription_live.txt
+transcription_latest.txt
+analyse_reunion.md
+
+# Environnement
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
