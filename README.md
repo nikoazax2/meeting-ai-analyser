@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/logo-full-transparant.png" alt="Meeting AI Analyser" width="400">
+  <img src="images/logo-full-for-black-background.png" alt="Meeting AI Analyser" width="400">
 </p>
 
 <p align="center">
@@ -36,6 +36,7 @@ Captures system audio (WASAPI loopback) and microphone, transcribes locally via 
 ## Features
 
 ### Real-time Transcription
+
 - Simultaneous capture of **system audio** (Teams, Zoom, browser...) and **microphone**
 - Local transcription via **faster-whisper** (no data sent externally)
 - GPU support (CUDA) for accelerated transcription, automatic CPU fallback
@@ -43,6 +44,7 @@ Captures system audio (WASAPI loopback) and microphone, transcribes locally via 
 - Smart deduplication between consecutive segments
 
 ### Automatic AI Analysis
+
 - Meeting analysis every 60 seconds via **Claude Code CLI**
 - Structured Markdown summary:
   - Topics discussed
@@ -53,6 +55,7 @@ Captures system audio (WASAPI loopback) and microphone, transcribes locally via 
 - Only triggers when transcription changes
 
 ### Web Interface
+
 - Split-panel dashboard (transcription on the left, analysis on the right)
 - Real-time streaming via Server-Sent Events (SSE)
 - Automatic fallback polling if SSE fails
@@ -99,22 +102,22 @@ Captures system audio (WASAPI loopback) and microphone, transcribes locally via 
 
 ### Required
 
-| Dependency | Version | Purpose |
-|-----------|---------|---------|
-| **Python** | 3.10+ (tested with 3.13) | Runtime |
-| **faster-whisper** | latest | Speech-to-text transcription |
-| **pyaudiowpatch** | latest | WASAPI audio capture (Windows) |
-| **numpy** | latest | Audio processing |
-| **scipy** | latest | Audio resampling |
-| **flask** | latest | Web server |
-| **psutil** | latest | Process management |
+| Dependency         | Version                  | Purpose                        |
+| ------------------ | ------------------------ | ------------------------------ |
+| **Python**         | 3.10+ (tested with 3.13) | Runtime                        |
+| **faster-whisper** | latest                   | Speech-to-text transcription   |
+| **pyaudiowpatch**  | latest                   | WASAPI audio capture (Windows) |
+| **numpy**          | latest                   | Audio processing               |
+| **scipy**          | latest                   | Audio resampling               |
+| **flask**          | latest                   | Web server                     |
+| **psutil**         | latest                   | Process management             |
 
 ### Optional
 
-| Dependency | Purpose |
-|-----------|---------|
-| **NVIDIA GPU + CUDA 11.8+** | Accelerated transcription (5-10x faster) |
-| **Claude Code CLI** | AI meeting analysis (`analyst.py` module) |
+| Dependency                  | Purpose                                   |
+| --------------------------- | ----------------------------------------- |
+| **NVIDIA GPU + CUDA 11.8+** | Accelerated transcription (5-10x faster)  |
+| **Claude Code CLI**         | AI meeting analysis (`analyst.py` module) |
 
 ### System
 
@@ -167,6 +170,7 @@ python main.py
 ```
 
 This will:
+
 1. Start the web server
 2. Open the browser automatically
 3. Load Whisper and start transcription
@@ -200,6 +204,7 @@ Then open `http://localhost:5555`.
 The interface is available at `http://localhost:5555` and consists of:
 
 ### Header
+
 - **Green pulsing dot**: SSE connection active
 - **Red static dot**: connection lost
 - **Reset button**: clears transcription and analysis, starts fresh
@@ -207,16 +212,19 @@ The interface is available at `http://localhost:5555` and consists of:
 - **Timestamp**: last update received
 
 ### Left Panel: Transcription
+
 - Displays each segment with its timestamp `[HH:MM:SS]`
 - The last 3 segments are highlighted in blue
 - Auto-scroll to bottom (pauses if you scroll manually)
 
 ### Right Panel: Claude Analysis
+
 - Structured meeting summary in Markdown
 - Automatically updated every 60s
 - Renders: headings, lists, bold, italic, code
 
 ### Stopping
+
 - **Stop button** or **closing the browser tab**: sends a shutdown signal to all processes
 - **Ctrl+C** in console if launched manually
 
@@ -230,38 +238,38 @@ The interface is available at `http://localhost:5555` and consists of:
 python main.py [OPTIONS]
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--port N` | 5555 | Web server port |
-| `--no-mic` | false | Disable microphone capture (loopback only) |
-| `--mic-device ID` | auto | Microphone device index to use |
-| `--segment N` | 10 | Segment duration in seconds |
-| `--model SIZE` | small | Whisper model: `tiny`, `base`, `small`, `medium`, `large-v3` |
-| `--language LANG` | fr | ISO language code (fr, en, de, es...) |
-| `--no-analysis` | false | Disable Claude AI analysis |
-| `--no-browser` | false | Don't open browser automatically |
+| Option            | Default | Description                                                  |
+| ----------------- | ------- | ------------------------------------------------------------ |
+| `--port N`        | 5555    | Web server port                                              |
+| `--no-mic`        | false   | Disable microphone capture (loopback only)                   |
+| `--mic-device ID` | auto    | Microphone device index to use                               |
+| `--segment N`     | 10      | Segment duration in seconds                                  |
+| `--model SIZE`    | small   | Whisper model: `tiny`, `base`, `small`, `medium`, `large-v3` |
+| `--language LANG` | fr      | ISO language code (fr, en, de, es...)                        |
+| `--no-analysis`   | false   | Disable Claude AI analysis                                   |
+| `--no-browser`    | false   | Don't open browser automatically                             |
 
 ### Whisper Model Selection
 
-| Model | Size | GPU RAM | Quality | Speed |
-|-------|------|---------|---------|-------|
-| `tiny` | 39 MB | ~1 GB | Basic | Very fast |
-| `base` | 74 MB | ~1 GB | Decent | Fast |
-| `small` | 244 MB | ~2 GB | Good | Medium |
-| `medium` | 769 MB | ~5 GB | Very good | Slow |
-| `large-v3` | 1.5 GB | ~10 GB | Excellent | Very slow |
+| Model      | Size   | GPU RAM | Quality   | Speed     |
+| ---------- | ------ | ------- | --------- | --------- |
+| `tiny`     | 39 MB  | ~1 GB   | Basic     | Very fast |
+| `base`     | 74 MB  | ~1 GB   | Decent    | Fast      |
+| `small`    | 244 MB | ~2 GB   | Good      | Medium    |
+| `medium`   | 769 MB | ~5 GB   | Very good | Slow      |
+| `large-v3` | 1.5 GB | ~10 GB  | Excellent | Very slow |
 
 > **Recommendation:** `small` offers the best quality/speed tradeoff for most languages.
 
 ### Internal Parameters
 
-| Parameter | File | Value | Description |
-|-----------|------|-------|-------------|
-| `DEFAULT_SEGMENT_DURATION` | live_transcribe.py | 10 | Segment duration (seconds) |
-| `SILENCE_THRESHOLD` | live_transcribe.py | 0.001 | RMS silence threshold |
-| `SAMPLE_RATE` | live_transcribe.py | 16000 | Sampling frequency |
-| `interval` | analyst.py | 60 | Analysis frequency (seconds) |
-| `port` | server.py | 5555 | Web server port |
+| Parameter                  | File               | Value | Description                  |
+| -------------------------- | ------------------ | ----- | ---------------------------- |
+| `DEFAULT_SEGMENT_DURATION` | live_transcribe.py | 10    | Segment duration (seconds)   |
+| `SILENCE_THRESHOLD`        | live_transcribe.py | 0.001 | RMS silence threshold        |
+| `SAMPLE_RATE`              | live_transcribe.py | 16000 | Sampling frequency           |
+| `interval`                 | analyst.py         | 60    | Analysis frequency (seconds) |
+| `port`                     | server.py          | 5555  | Web server port              |
 
 ---
 
@@ -269,30 +277,30 @@ python main.py [OPTIONS]
 
 ### Source Code
 
-| File | Lines | Role |
-|------|-------|------|
-| `main.py` | 128 | Single entry point, thread orchestration |
-| `live_transcribe.py` | 477 | Audio capture engine + Whisper transcription |
-| `server.py` | 226 | Flask web server (REST API + SSE) |
-| `analyst.py` | 142 | AI analysis module via Claude CLI |
-| `index.html` | 550+ | Web interface (HTML + CSS + JS embedded) |
+| File                 | Lines | Role                                         |
+| -------------------- | ----- | -------------------------------------------- |
+| `main.py`            | 128   | Single entry point, thread orchestration     |
+| `live_transcribe.py` | 477   | Audio capture engine + Whisper transcription |
+| `server.py`          | 226   | Flask web server (REST API + SSE)            |
+| `analyst.py`         | 142   | AI analysis module via Claude CLI            |
+| `index.html`         | 550+  | Web interface (HTML + CSS + JS embedded)     |
 
 ### Build Files
 
-| File | Role |
-|------|------|
-| `build.spec` | PyInstaller configuration |
+| File            | Role                                   |
+| --------------- | -------------------------------------- |
+| `build.spec`    | PyInstaller configuration              |
 | `build_icon.py` | Converts logo to multi-resolution .ico |
 
 ### Generated Files (runtime)
 
-| File | Role |
-|------|------|
-| `transcription_live.txt` | Full timestamped transcription |
-| `transcription_latest.txt` | Latest transcribed segment only |
-| `analyse_reunion.md` | Latest Claude analysis in Markdown |
-| `temp_segment.wav` | Temporary audio file (auto-deleted) |
-| `temp_prompt.txt` | Temporary Claude prompt (auto-deleted) |
+| File                       | Role                                   |
+| -------------------------- | -------------------------------------- |
+| `transcription_live.txt`   | Full timestamped transcription         |
+| `transcription_latest.txt` | Latest transcribed segment only        |
+| `analyse_reunion.md`       | Latest Claude analysis in Markdown     |
+| `temp_segment.wav`         | Temporary audio file (auto-deleted)    |
+| `temp_prompt.txt`          | Temporary Claude prompt (auto-deleted) |
 
 ---
 
@@ -301,10 +309,13 @@ python main.py [OPTIONS]
 The Flask server exposes the following endpoints on `http://localhost:5555`:
 
 ### `GET /`
+
 Serves the web interface (`index.html`).
 
 ### `GET /api/transcription`
+
 Returns the current transcription.
+
 ```json
 {
   "content": "[08:30:15] Hello, let's get started...\n[08:30:25] Yes, first topic...",
@@ -313,7 +324,9 @@ Returns the current transcription.
 ```
 
 ### `GET /api/analysis`
+
 Returns the current Claude analysis.
+
 ```json
 {
   "content": "# Meeting Analysis - 2026-02-23 10:30\n\n## Topics Discussed\n...",
@@ -322,36 +335,47 @@ Returns the current Claude analysis.
 ```
 
 ### `GET /api/stream`
+
 SSE (Server-Sent Events) endpoint. Sends events when transcription or analysis changes.
+
 ```
 data: {"type": "transcription", "content": "..."}
 data: {"type": "analysis", "content": "..."}
 ```
+
 Check interval: 2 seconds.
 
 ### `GET /api/devices`
+
 Returns available microphone devices and the currently active one.
+
 ```json
 {
-  "devices": [{"id": 1, "name": "Microphone (Realtek)", "channels": 2, "sampleRate": 48000}],
+  "devices": [{ "id": 1, "name": "Microphone (Realtek)", "channels": 2, "sampleRate": 48000 }],
   "active": 1
 }
 ```
 
 ### `POST /api/restart`
+
 Restarts transcription with a new microphone device.
+
 ```json
-{"micDevice": 5}
+{ "micDevice": 5 }
 ```
 
 ### `POST /api/reset`
+
 Resets transcription and analysis. Returns `{"status": "reset"}`.
 
 ### `GET /api/stop`
+
 Stops all Meeting AI Analyser processes. Returns `{"status": "stopped"}`.
 
 ### `GET /api/status`
+
 Returns the application loading status.
+
 ```json
 {
   "server": true,
@@ -364,6 +388,7 @@ Returns the application loading status.
 ```
 
 ### `GET /api/heartbeat`
+
 Browser heartbeat ping. If no ping received for 15s, the server auto-shuts down.
 
 ---
@@ -389,6 +414,7 @@ Browser heartbeat ping. If no ping received for 15s, the server auto-shuts down.
 ### Deduplication
 
 Prevents repetitions between consecutive segments:
+
 1. Compares the last N words of the previous segment with the first N of the new one
 2. If overlap >= 5 words, removes the duplicated portion from the new segment
 3. Case-insensitive comparison, max 20 words checked
@@ -396,6 +422,7 @@ Prevents repetitions between consecutive segments:
 ### GPU Detection
 
 At startup, the script tries in order:
+
 1. **CUDA float16** (NVIDIA GPU) - maximum performance
 2. **CPU int8** (fallback) - works everywhere, slower
 
@@ -415,31 +442,38 @@ The NVIDIA DLL path is automatically added to PATH (specific to Python 3.13 Wind
 ## Troubleshooting
 
 ### "No WASAPI loopback device found"
+
 - Make sure an audio output device is active (headphones, speakers, virtual output)
 - On some systems, WASAPI loopback is only available when audio is playing
 
 ### "Module faster_whisper not found"
+
 ```bash
 pip install faster-whisper
 ```
 
 ### Transcription is slow (CPU)
+
 - Install NVIDIA drivers + CUDA to use the GPU
 - Or use a lighter model: `--model tiny` or `--model base`
 
 ### "'claude' not found in PATH"
+
 - Install Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
 - Or run without the analyst.py module (transcription only)
 
 ### Web interface doesn't load
+
 - Check that `server.py` is running and listening on port 5555
 - Check that no other process is using the port: `netstat -ano | findstr 5555`
 
 ### Microphone not detected
+
 - List devices: `python live_transcribe.py --list-devices`
 - Select manually: `python live_transcribe.py --mic-device ID`
 
 ### Transcription contains repetitions
+
 - Increase segment duration: `--segment 15` or `--segment 20`
 - The deduplication mechanism handles most cases, but very short segments may generate duplicates
 
