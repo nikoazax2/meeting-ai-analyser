@@ -41,7 +41,7 @@ def main():
     parser.add_argument("--mic-device", type=int, default=None, help="Microphone ID")
     parser.add_argument("--model", type=str, default="small",
                         help="Whisper model: tiny, base, small, medium, large-v3")
-    parser.add_argument("--language", type=str, default="fr", help="Language code")
+    parser.add_argument("--language", type=str, default="en", help="Language code")
     parser.add_argument("--segment", type=int, default=10, help="Segment duration (seconds)")
     parser.add_argument("--no-mic", action="store_true", help="Disable microphone")
     parser.add_argument("--no-analysis", action="store_true", help="Disable Claude analysis")

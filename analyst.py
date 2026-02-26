@@ -18,18 +18,18 @@ def log(msg):
 # Timing state (exposed for server.py)
 analyst_status = {"state": "idle", "last_run": 0, "next_run": 0, "interval": 60}
 
-PROMPT = """Tu es un assistant de réunion en temps réel. Voici la transcription en direct d'une réunion en cours.
+PROMPT = """You are a real-time meeting assistant. Here is the live transcription of an ongoing meeting.
 
-INSTRUCTIONS :
-1. Résume les sujets abordés
-2. Liste les décisions prises
-3. Identifie les questions ouvertes
-4. Propose des solutions techniques si pertinent
-5. Liste les actions à mener (qui fait quoi)
+INSTRUCTIONS:
+1. Summarize the topics discussed
+2. List decisions made
+3. Identify open questions
+4. Suggest technical solutions if relevant
+5. List action items (who does what)
 
-Sois concis et structuré. Format Markdown. Réponds en français.
+Be concise and structured. Markdown format.
 
-TRANSCRIPTION :
+TRANSCRIPTION:
 {transcription}
 """
 

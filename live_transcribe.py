@@ -66,7 +66,7 @@ active_mic_id = None
 audio_levels = {"loopback": 0.0, "mic": 0.0}
 
 # Active language (mutable, exposed for server.py)
-active_language = "fr"
+active_language = "en"
 
 
 def signal_handler(sig, frame):
@@ -177,7 +177,7 @@ def load_whisper_model(model_size="small"):
     return model
 
 
-def transcribe_segment(model, audio_data, sample_rate, language="fr"):
+def transcribe_segment(model, audio_data, sample_rate, language="en"):
     """Transcribe a mono audio segment"""
     if is_silence(audio_data):
         return None
@@ -249,7 +249,7 @@ def to_mono_16k(raw_data, channels, source_sr):
 
 
 def start(stop_event, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
-          model_size="small", language="fr", no_mic=False):
+          model_size="small", language="en", no_mic=False):
     """Entry point for module mode (called from main.py as thread)"""
     global _stop_event, running
     _stop_event = stop_event
@@ -259,7 +259,7 @@ def start(stop_event, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
 
 
 def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
-         model_size="small", language="fr", no_mic=False):
+         model_size="small", language="en", no_mic=False):
     """Main transcription logic"""
     global running, active_language
     active_language = language

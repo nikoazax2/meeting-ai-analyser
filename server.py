@@ -21,7 +21,7 @@ TRANSCRIBE_SCRIPT = os.path.join(APP_DIR, "live_transcribe.py")
 app = Flask(__name__, static_folder=BUNDLE_DIR)
 
 # Global status (injected by main.py)
-app_status = {"ready": False, "message": "Starting...", "language": "fr", "model": "small"}
+app_status = {"ready": False, "message": "Starting...", "language": "en", "model": "small"}
 
 # Heartbeat: browser pings every 5s, if no ping for 15s -> shutdown
 _last_heartbeat = time.time()
