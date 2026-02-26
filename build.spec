@@ -11,6 +11,10 @@ ct2_path = os.path.join(site_packages, "ctranslate2")
 nvidia_cublas = os.path.join(site_packages, "nvidia", "cublas", "bin")
 nvidia_cudnn = os.path.join(site_packages, "nvidia", "cudnn", "bin")
 
+# Find faster_whisper assets via the actual module path
+import faster_whisper as _fw
+faster_whisper_assets = os.path.join(os.path.dirname(_fw.__file__), "assets")
+
 binaries = []
 # CTranslate2 libraries
 if os.path.isdir(ct2_path):
@@ -33,6 +37,7 @@ a = Analysis(
         ('index.html', '.'),
         ('assets/app.ico', 'assets'),
         ('images', 'images'),
+        (faster_whisper_assets, 'faster_whisper/assets'),
     ],
     hiddenimports=[
         'faster_whisper',
@@ -43,6 +48,7 @@ a = Analysis(
         'scipy.signal',
         'flask',
         'psutil',
+        'paths',
         'live_transcribe',
         'analyst',
         'server',

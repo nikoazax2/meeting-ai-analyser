@@ -9,7 +9,17 @@ import signal
 import sys
 import threading
 import time
+import traceback
 import webbrowser
+
+from paths import APP_DIR
+
+CRASH_LOG = os.path.join(APP_DIR, "crash.log")
+
+
+def _log_crash(module, error):
+    with open(CRASH_LOG, "a", encoding="utf-8") as f:
+        f.write(f"[{time.strftime('%H:%M:%S')}] {module} CRASH:\n{error}\n\n")
 
 
 # Global loading status
@@ -31,7 +41,7 @@ def main():
     parser.add_argument("--mic-device", type=int, default=None, help="Microphone ID")
     parser.add_argument("--model", type=str, default="small",
                         help="Whisper model: tiny, base, small, medium, large-v3")
-    parser.add_argument("--language", type=str, default="en", help="Language code")
+    parser.add_argument("--language", type=str, default="fr", help="Language code")
     parser.add_argument("--segment", type=int, default=10, help="Segment duration (seconds)")
     parser.add_argument("--no-mic", action="store_true", help="Disable microphone")
     parser.add_argument("--no-analysis", action="store_true", help="Disable Claude analysis")
@@ -76,19 +86,21 @@ def main():
     # 3. Transcription (loads Whisper = slow)
     app_status["message"] = "Loading Whisper model..."
     import live_transcribe
-    t_transcribe = threading.Thread(
-        target=live_transcribe.start,
-        args=(stop_event,),
-        kwargs={
-            "mic_device": args.mic_device,
-            "segment": args.segment,
-            "model_size": args.model,
-            "language": args.language,
-            "no_mic": args.no_mic,
-        },
-        name="transcription",
-        daemon=True,
-    )
+
+    def _run_transcribe():
+        try:
+            live_transcribe.start(
+                stop_event,
+                mic_device=args.mic_device,
+                segment=args.segment,
+                model_size=args.model,
+                language=args.language,
+                no_mic=args.no_mic,
+            )
+        except Exception:
+            _log_crash("TRANSCRIPTION", traceback.format_exc())
+
+    t_transcribe = threading.Thread(target=_run_transcribe, name="transcription", daemon=True)
     t_transcribe.start()
     app_status["transcription"] = True
     app_status["message"] = "Transcription started"
@@ -97,12 +109,14 @@ def main():
     # 4. Claude analysis (optional)
     if not args.no_analysis:
         import analyst
-        t_analyst = threading.Thread(
-            target=analyst.start,
-            args=(stop_event,),
-            name="analyst",
-            daemon=True,
-        )
+
+        def _run_analyst():
+            try:
+                analyst.start(stop_event)
+            except Exception:
+                _log_crash("ANALYST", traceback.format_exc())
+
+        t_analyst = threading.Thread(target=_run_analyst, name="analyst", daemon=True)
         t_analyst.start()
         app_status["analysis"] = True
         app_status["message"] = "Claude analysis started"

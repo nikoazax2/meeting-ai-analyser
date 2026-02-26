@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Meeting AI Analyser</title>
     <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
       * {
         margin: 0;
@@ -13,38 +16,48 @@
       }
 
       body {
-        font-family:
-          "Segoe UI",
-          system-ui,
-          -apple-system,
-          sans-serif;
-        background: #0d1117;
-        color: #e6edf3;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        background: #0b0f19;
+        color: #f1f5f9;
         height: 100vh;
         overflow: hidden;
       }
 
       /* Header */
       .header {
-        background: #161b22;
-        border-bottom: 1px solid #30363d;
-        padding: 12px 24px;
+        background: rgba(17, 24, 39, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: none;
+        padding: 14px 24px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        height: 56px;
+        height: 60px;
+        position: relative;
+      }
+
+      .header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #1e293b 20%, #d9775730 50%, #1e293b 80%, transparent);
       }
 
       .header-left {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 18px;
       }
 
       .header h1 {
         font-size: 16px;
         font-weight: 600;
-        color: #e6edf3;
+        color: #f1f5f9;
+        letter-spacing: -0.01em;
       }
 
       .source-badges {
@@ -57,12 +70,18 @@
         display: flex;
         align-items: center;
         gap: 6px;
-        background: #21262d;
-        border: 1px solid #30363d;
-        padding: 4px 10px;
-        border-radius: 16px;
+        background: #1a2332;
+        border: 1px solid #1e293b;
+        padding: 5px 12px;
+        border-radius: 20px;
         font-size: 12px;
-        color: #8b949e;
+        color: #94a3b8;
+        transition: border-color 0.25s ease, box-shadow 0.25s ease;
+      }
+
+      .source-badge:has(.audio-bars:not(.inactive)) {
+        border-color: #d9775740;
+        box-shadow: 0 0 8px #d9775718;
       }
 
       .audio-bars {
@@ -75,14 +94,14 @@
 
       .audio-bar {
         width: 2.5px;
-        background: #3fb950;
-        border-radius: 1px;
+        background: #d97757;
+        border-radius: 2px;
         min-height: 2px;
-        transition: height 0.12s ease-out;
+        transition: height 0.15s ease-out;
       }
 
       .audio-bars.inactive .audio-bar {
-        background: #f85149;
+        background: #475569;
         height: 2px !important;
       }
 
@@ -92,7 +111,7 @@
       }
 
       .source-badge .label {
-        color: #c9d1d9;
+        color: #cbd5e1;
         font-weight: 500;
         white-space: nowrap;
       }
@@ -101,24 +120,19 @@
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: #3fb950;
-        animation: pulse 2s infinite;
+        background: #d97757;
+        animation: statusPulse 2s infinite;
         display: none;
       }
 
       .status-dot.inactive {
-        background: #f85149;
+        background: #ef4444;
         animation: none;
       }
 
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.4;
-        }
+      @keyframes statusPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
       }
 
       .header-right {
@@ -126,11 +140,12 @@
         align-items: center;
         gap: 16px;
         font-size: 13px;
-        color: #8b949e;
+        color: #94a3b8;
       }
 
       .segment-count {
-        background: #21262d;
+        background: #1a2332;
+        border: 1px solid #1e293b;
         padding: 4px 10px;
         border-radius: 12px;
         font-size: 12px;
@@ -139,7 +154,9 @@
       /* Main layout */
       .main {
         display: flex;
-        height: calc(100vh - 56px);
+        height: calc(100vh - 60px);
+        gap: 1px;
+        background: #1e293b;
       }
 
       /* Panels */
@@ -148,16 +165,17 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        background: #0b0f19;
       }
 
       .panel:first-child {
-        border-right: 1px solid #30363d;
+        border-right: none;
       }
 
       .panel-header {
-        background: #161b22;
+        background: linear-gradient(180deg, #111827 0%, #0f1420 100%);
         padding: 10px 20px;
-        border-bottom: 1px solid #30363d;
+        border-bottom: 1px solid #1e293b;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -165,19 +183,39 @@
       }
 
       .panel-title {
-        font-size: 13px;
+        font-size: 11px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #8b949e;
+        letter-spacing: 0.08em;
+        color: #64748b;
       }
 
       .panel-badge {
         font-size: 11px;
-        background: #1f6feb33;
-        color: #58a6ff;
-        padding: 2px 8px;
+        background: #60a5fa18;
+        color: #60a5fa;
+        padding: 3px 10px;
         border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.25s ease;
+      }
+
+      .panel-badge.live {
+        background: #d9775720;
+        color: #d97757;
+        box-shadow: 0 0 10px #d9775715;
+      }
+
+      .panel-badge.analyzing {
+        background: #d9775720;
+        color: #d97757;
+        box-shadow: 0 0 12px #d9775720;
+        animation: badgeGlow 1.5s ease-in-out infinite;
+      }
+
+      @keyframes badgeGlow {
+        0%, 100% { box-shadow: 0 0 8px #d9775715; }
+        50% { box-shadow: 0 0 16px #d9775730; }
       }
 
       .panel-content {
@@ -189,38 +227,43 @@
 
       /* Transcription */
       .trans-line {
-        padding: 8px 12px;
+        padding: 10px 14px;
         margin-bottom: 4px;
-        border-radius: 6px;
-        line-height: 1.6;
+        border-radius: 8px;
+        line-height: 1.65;
         font-size: 14px;
-        animation: fadeIn 0.3s ease;
+        animation: fadeIn 0.4s ease;
+        transition: background 0.25s ease;
       }
 
       .trans-line:hover {
-        background: #161b22;
+        background: #111827;
       }
 
       .trans-time {
-        color: #58a6ff;
-        font-size: 12px;
+        color: #60a5fa;
+        font-size: 11px;
         font-family: "Cascadia Code", "Fira Code", monospace;
-        margin-right: 8px;
+        margin-right: 10px;
+        background: #60a5fa10;
+        padding: 2px 6px;
+        border-radius: 4px;
       }
 
       .trans-text {
-        color: #e6edf3;
+        color: #e2e8f0;
       }
 
       .trans-line.new {
-        background: #1f6feb15;
-        border-left: 3px solid #1f6feb;
+        background: linear-gradient(90deg, #d9775712 0%, transparent 100%);
+        border-left: 3px solid #d97757;
+        box-shadow: inset 4px 0 12px -4px #d9775715;
       }
 
       @keyframes fadeIn {
         from {
           opacity: 0;
-          transform: translateY(4px);
+          transform: translateY(6px);
         }
         to {
           opacity: 1;
@@ -230,57 +273,68 @@
 
       /* Analysis */
       .analysis-content {
-        line-height: 1.7;
+        line-height: 1.75;
         font-size: 14px;
       }
 
       .analysis-content h1 {
         font-size: 18px;
-        color: #58a6ff;
+        color: #f1f5f9;
         margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #30363d;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #1e293b;
+        font-weight: 700;
+        letter-spacing: -0.01em;
       }
 
       .analysis-content h2 {
         font-size: 15px;
-        color: #d2a8ff;
-        margin-top: 20px;
-        margin-bottom: 8px;
+        color: #d97757;
+        margin-top: 24px;
+        margin-bottom: 10px;
+        font-weight: 600;
       }
 
       .analysis-content h3 {
         font-size: 14px;
-        color: #79c0ff;
-        margin-top: 16px;
-        margin-bottom: 6px;
+        color: #60a5fa;
+        margin-top: 18px;
+        margin-bottom: 8px;
+        font-weight: 600;
       }
 
       .analysis-content ul,
       .analysis-content ol {
         padding-left: 20px;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
       }
 
       .analysis-content li {
-        margin-bottom: 4px;
-        color: #c9d1d9;
+        margin-bottom: 6px;
+        color: #cbd5e1;
+      }
+
+      .analysis-content li::marker {
+        color: #475569;
       }
 
       .analysis-content strong {
-        color: #e6edf3;
+        color: #f1f5f9;
+        font-weight: 600;
       }
 
       .analysis-content code {
-        background: #1f2937;
-        padding: 2px 6px;
-        border-radius: 4px;
+        background: #1a2332;
+        border: 1px solid #1e293b;
+        padding: 2px 7px;
+        border-radius: 5px;
         font-size: 13px;
-        color: #f0883e;
+        color: #d97757;
       }
 
       .analysis-content p {
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+        color: #cbd5e1;
       }
 
       /* Analyst progress */
@@ -292,13 +346,13 @@
 
       .analyst-countdown {
         font-size: 11px;
-        color: #8b949e;
+        color: #94a3b8;
         font-family: "Cascadia Code", "Fira Code", monospace;
       }
 
       .analyst-progress-track {
-        height: 3px;
-        background: #21262d;
+        height: 2px;
+        background: #111827;
         width: 100%;
       }
 
@@ -307,10 +361,12 @@
         background: #d97757;
         width: 0%;
         transition: width 1s linear;
+        box-shadow: 0 0 6px #d9775730;
       }
 
       .analyst-progress-bar.analyzing {
         background: #d97757;
+        box-shadow: 0 0 12px #d9775750;
         animation: barPulse 1s ease-in-out infinite;
       }
 
@@ -326,22 +382,27 @@
         align-items: center;
         justify-content: center;
         height: 100%;
-        color: #484f58;
-        gap: 12px;
+        color: #334155;
+        gap: 14px;
       }
 
       .empty-state svg {
         width: 48px;
         height: 48px;
-        opacity: 0.3;
+        opacity: 0.25;
       }
 
       .empty-state p {
         font-size: 14px;
+        color: #475569;
       }
 
       /* Scrollbar */
       .panel-content::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .panel-content::-webkit-scrollbar:hover {
         width: 6px;
       }
 
@@ -350,32 +411,35 @@
       }
 
       .panel-content::-webkit-scrollbar-thumb {
-        background: #30363d;
-        border-radius: 3px;
+        background: #1e293b;
+        border-radius: 4px;
       }
 
       .panel-content::-webkit-scrollbar-thumb:hover {
-        background: #484f58;
+        background: #334155;
       }
 
       /* Selects */
       #langSelect {
-        background: #21262d;
-        color: #e6edf3;
-        border: 1px solid #30363d;
-        padding: 4px 8px;
-        border-radius: 6px;
+        background: #1a2332;
+        color: #f1f5f9;
+        border: 1px solid #1e293b;
+        padding: 5px 10px;
+        border-radius: 8px;
         font-size: 12px;
+        font-family: "Inter", system-ui, sans-serif;
         cursor: pointer;
         max-width: 220px;
         text-overflow: ellipsis;
+        transition: border-color 0.25s ease;
       }
 
       #micSelect {
         background: transparent;
-        color: #c9d1d9;
+        color: #cbd5e1;
         border: none;
         font-size: 12px;
+        font-family: "Inter", system-ui, sans-serif;
         font-weight: 500;
         cursor: pointer;
         max-width: 180px;
@@ -384,14 +448,15 @@
       }
 
       #langSelect:hover {
-        border-color: #58a6ff;
+        border-color: #60a5fa;
       }
       #langSelect:focus {
         outline: none;
-        border-color: #58a6ff;
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 2px #60a5fa20;
       }
       #micSelect:hover {
-        color: #e6edf3;
+        color: #f1f5f9;
       }
       #micSelect:focus {
         outline: none;
@@ -399,19 +464,22 @@
 
       /* Reset button */
       #resetBtn {
-        background: #da3633;
-        color: #fff;
-        border: none;
+        background: transparent;
+        color: #94a3b8;
+        border: 1px solid #1e293b;
         padding: 5px 14px;
-        border-radius: 6px;
+        border-radius: 8px;
         font-size: 12px;
-        font-weight: 600;
+        font-family: "Inter", system-ui, sans-serif;
+        font-weight: 500;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: all 0.25s ease;
       }
 
       #resetBtn:hover {
-        background: #f85149;
+        color: #ef4444;
+        border-color: #ef444450;
+        background: #ef444410;
       }
 
       /* Loading spinner */
@@ -419,8 +487,8 @@
         display: inline-block;
         width: 14px;
         height: 14px;
-        border: 2px solid #30363d;
-        border-top: 2px solid #58a6ff;
+        border: 2px solid #1e293b;
+        border-top: 2px solid #60a5fa;
         border-radius: 50%;
         animation: spin 1s linear infinite;
         margin-left: 8px;
@@ -439,13 +507,14 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: #0d1117;
+        background: #0b0f19;
+        background-image: radial-gradient(ellipse at 50% 40%, #111827 0%, #0b0f19 70%);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 9999;
-        transition: opacity 0.5s ease;
+        transition: opacity 0.6s ease;
       }
 
       .loader-overlay.hidden {
@@ -457,12 +526,11 @@
         width: 120px;
         height: auto;
         margin-bottom: 32px;
-        animation: pulse 2s ease-in-out infinite;
+        animation: logoPulse 2s ease-in-out infinite;
       }
 
-      @keyframes pulse {
-        0%,
-        100% {
+      @keyframes logoPulse {
+        0%, 100% {
           opacity: 1;
           transform: scale(1);
         }
@@ -473,19 +541,19 @@
       }
 
       .loader-spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid #21262d;
-        border-top: 3px solid #d97757;
+        width: 36px;
+        height: 36px;
+        border: 2px solid #1e293b;
+        border-top: 2px solid #d97757;
         border-radius: 50%;
-        animation: spin 1s linear infinite;
+        animation: spin 0.9s linear infinite;
         margin-bottom: 20px;
       }
 
       .loader-text {
-        color: #8b949e;
+        color: #94a3b8;
         font-size: 14px;
-        font-family: "Segoe UI", system-ui, sans-serif;
+        font-family: "Inter", system-ui, sans-serif;
       }
     </style>
   </head>
@@ -684,6 +752,7 @@
 
         analysisEmpty.style.display = "none";
         analysisStatus.textContent = "Updated";
+        analysisStatus.className = "panel-badge";
 
         // Basic Markdown -> HTML
         let html = escapeHtml(text);
@@ -729,6 +798,7 @@
           if (data.type === "transcription" && data.content !== lastTransContent) {
             lastTransContent = data.content;
             transStatus.textContent = "Live";
+            transStatus.className = "panel-badge live";
             renderTranscription(data.content);
           }
 
@@ -742,6 +812,7 @@
           statusDot.classList.add("inactive");
           updateSourceBadges(false, false);
           transStatus.textContent = "Disconnected";
+          transStatus.className = "panel-badge";
           setTimeout(() => {
             evtSource.close();
             connectSSE();
@@ -880,11 +951,15 @@
             analystBar.classList.add("analyzing");
             analystCountdown.textContent = "analyzing...";
             analysisStatus.textContent = "Analyzing";
+            analysisStatus.className = "panel-badge analyzing";
           } else {
             analystBar.classList.remove("analyzing");
             analystBar.style.width = (data.progress * 100) + "%";
             const r = data.remaining;
             analystCountdown.textContent = r > 0 ? r + "s" : "";
+            if (analysisStatus.textContent === "Analyzing") {
+              analysisStatus.className = "panel-badge";
+            }
           }
         } catch {}
       }

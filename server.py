@@ -14,15 +14,14 @@ import sys
 import psutil
 from flask import Flask, Response, request, send_from_directory
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TRANSCRIPTION_FILE = os.path.join(SCRIPT_DIR, "transcription_live.txt")
-ANALYSIS_FILE = os.path.join(SCRIPT_DIR, "analyse_reunion.md")
-TRANSCRIBE_SCRIPT = os.path.join(SCRIPT_DIR, "live_transcribe.py")
+from paths import TRANSCRIPTION_FILE, ANALYSIS_FILE, BUNDLE_DIR, APP_DIR
 
-app = Flask(__name__, static_folder=SCRIPT_DIR)
+TRANSCRIBE_SCRIPT = os.path.join(APP_DIR, "live_transcribe.py")
+
+app = Flask(__name__, static_folder=BUNDLE_DIR)
 
 # Global status (injected by main.py)
-app_status = {"ready": False, "message": "Starting...", "language": "en", "model": "small"}
+app_status = {"ready": False, "message": "Starting...", "language": "fr", "model": "small"}
 
 # Heartbeat: browser pings every 5s, if no ping for 15s -> shutdown
 _last_heartbeat = time.time()
@@ -52,12 +51,12 @@ def read_file_safe(filepath):
 
 @app.route("/")
 def index():
-    return send_from_directory(SCRIPT_DIR, "index.html")
+    return send_from_directory(BUNDLE_DIR, "index.html")
 
 
 @app.route("/images/<path:filename>")
 def serve_images(filename):
-    return send_from_directory(os.path.join(SCRIPT_DIR, "images"), filename)
+    return send_from_directory(os.path.join(BUNDLE_DIR, "images"), filename)
 
 
 @app.route("/api/transcription")

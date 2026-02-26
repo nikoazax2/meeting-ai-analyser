@@ -7,10 +7,7 @@ import subprocess
 import sys
 import time
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TRANSCRIPTION_FILE = os.path.join(SCRIPT_DIR, "transcription_live.txt")
-ANALYSIS_FILE = os.path.join(SCRIPT_DIR, "analyse_reunion.md")
-LOG_FILE = os.path.join(SCRIPT_DIR, "analyst_debug.log")
+from paths import TRANSCRIPTION_FILE, ANALYSIS_FILE, LOG_FILE, TEMP_PROMPT
 
 
 def log(msg):
@@ -21,18 +18,18 @@ def log(msg):
 # Timing state (exposed for server.py)
 analyst_status = {"state": "idle", "last_run": 0, "next_run": 0, "interval": 60}
 
-PROMPT = """You are a real-time meeting assistant. Here is the live transcription of an ongoing meeting.
+PROMPT = """Tu es un assistant de réunion en temps réel. Voici la transcription en direct d'une réunion en cours.
 
-INSTRUCTIONS:
-1. Summarize the topics discussed
-2. List decisions made
-3. Identify open questions
-4. Suggest technical solutions if relevant
-5. List action items (who does what)
+INSTRUCTIONS :
+1. Résume les sujets abordés
+2. Liste les décisions prises
+3. Identifie les questions ouvertes
+4. Propose des solutions techniques si pertinent
+5. Liste les actions à mener (qui fait quoi)
 
-Be concise and structured. Markdown format.
+Sois concis et structuré. Format Markdown. Réponds en français.
 
-TRANSCRIPTION:
+TRANSCRIPTION :
 {transcription}
 """
 
@@ -48,7 +45,7 @@ def analyze_with_claude(text):
     prompt = PROMPT.format(transcription=text)
 
     # Write prompt to temp file to avoid Windows quote issues
-    prompt_file = os.path.join(SCRIPT_DIR, "temp_prompt.txt")
+    prompt_file = TEMP_PROMPT
     with open(prompt_file, "w", encoding="utf-8") as f:
         f.write(prompt)
 

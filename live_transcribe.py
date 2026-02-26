@@ -41,15 +41,19 @@ import numpy as np
 import pyaudiowpatch as pyaudio
 
 # Output files
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_FILE = os.path.join(SCRIPT_DIR, "transcription_live.txt")
-OUTPUT_LATEST = os.path.join(SCRIPT_DIR, "transcription_latest.txt")
-AUDIO_TEMP = os.path.join(SCRIPT_DIR, "temp_segment.wav")
+from paths import TRANSCRIPTION_FILE as OUTPUT_FILE, TRANSCRIPTION_LATEST as OUTPUT_LATEST, AUDIO_TEMP, APP_DIR
 
 # Config
 DEFAULT_SEGMENT_DURATION = 10
 SAMPLE_RATE = 16000
 SILENCE_THRESHOLD = 0.001
+
+# Debug log for exe mode
+_TRANSCRIBE_LOG = os.path.join(APP_DIR, "transcribe_debug.log")
+
+def _tlog(msg):
+    with open(_TRANSCRIBE_LOG, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {msg}\n")
 
 # Stop flag (threading.Event for module mode, global for standalone)
 _stop_event = None
@@ -62,7 +66,7 @@ active_mic_id = None
 audio_levels = {"loopback": 0.0, "mic": 0.0}
 
 # Active language (mutable, exposed for server.py)
-active_language = "en"
+active_language = "fr"
 
 
 def signal_handler(sig, frame):
@@ -149,6 +153,7 @@ def is_silence(audio_data, threshold=SILENCE_THRESHOLD):
 
 
 def load_whisper_model(model_size="small"):
+    _tlog(f"Loading Whisper model '{model_size}'...")
     print(f"[INIT] Loading Whisper model '{model_size}'...")
     print("[INIT] (First launch = model download, please wait...)")
 
@@ -156,13 +161,17 @@ def load_whisper_model(model_size="small"):
 
     try:
         model = WhisperModel(model_size, device="cuda", compute_type="float16")
+        _tlog("Model loaded on GPU (CUDA)")
         print("[INIT] Model loaded on GPU (CUDA)")
-    except Exception:
+    except Exception as e1:
+        _tlog(f"CUDA failed: {e1}")
         try:
             model = WhisperModel(model_size, device="cpu", compute_type="int8")
+            _tlog("Model loaded on CPU (int8)")
             print("[INIT] Model loaded on CPU (int8)")
-        except Exception as e:
-            print(f"[ERROR] Failed to load model: {e}")
+        except Exception as e2:
+            _tlog(f"CPU also failed: {e2}")
+            print(f"[ERROR] Failed to load model: {e2}")
             return None
 
     return model
@@ -181,6 +190,7 @@ def transcribe_segment(model, audio_data, sample_rate, language="fr"):
         wf.writeframes(audio_int16.tobytes())
 
     try:
+        _tlog(f"Transcribing {AUDIO_TEMP} (lang={language})...")
         segments, info = model.transcribe(
             AUDIO_TEMP,
             language=language,
@@ -192,8 +202,10 @@ def transcribe_segment(model, audio_data, sample_rate, language="fr"):
             ),
         )
         text = " ".join([s.text.strip() for s in segments])
+        _tlog(f"Result: '{text[:80]}...' " if len(text) > 80 else f"Result: '{text}'")
         return text if text.strip() else None
     except Exception as e:
+        _tlog(f"TRANSCRIBE ERROR: {e}")
         print(f"[ERROR] Transcription: {e}")
         return None
 
@@ -247,7 +259,7 @@ def start(stop_event, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
 
 
 def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
-         model_size="small", language="en", no_mic=False):
+         model_size="small", language="fr", no_mic=False):
     """Main transcription logic"""
     global running, active_language
     active_language = language
@@ -337,6 +349,7 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
         return (in_data, pyaudio.paContinue)
 
     samples_per_segment = segment * lb_sr
+    first_segment_samples = min(3 * lb_sr, samples_per_segment)
     segment_count = 0
     prev_text = ""
 
@@ -375,7 +388,8 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
                 total_bytes = sum(len(f) for f in loopback_frames)
             total_samples = total_bytes // (2 * lb_channels)
 
-            if total_samples >= samples_per_segment:
+            threshold = first_segment_samples if segment_count == 0 else samples_per_segment
+            if total_samples >= threshold:
                 segment_count += 1
 
                 # Collect loopback frames
@@ -472,7 +486,7 @@ def main():
     parser.add_argument("--segment", type=int, default=DEFAULT_SEGMENT_DURATION)
     parser.add_argument("--model", type=str, default="small",
                         help="tiny, base, small, medium, large-v3")
-    parser.add_argument("--language", type=str, default="en")
+    parser.add_argument("--language", type=str, default="fr")
     args = parser.parse_args()
 
     if args.list_devices:
