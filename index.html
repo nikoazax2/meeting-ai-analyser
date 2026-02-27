@@ -462,6 +462,109 @@
         outline: none;
       }
 
+      /* Analyst control buttons */
+      .analyst-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .analyst-btn {
+        background: transparent;
+        color: #94a3b8;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        font-size: 11px;
+        font-family: "Inter", system-ui, sans-serif;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.25s ease;
+        padding: 5px 10px;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .analyst-btn:hover {
+        color: #f1f5f9;
+        border-color: #475569;
+        background: #1a2332;
+      }
+
+      .analyst-btn.active {
+        color: #d97757;
+        border-color: #d9775750;
+        background: #d9775715;
+      }
+
+      .analyst-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .analyst-btn.paused {
+        color: #60a5fa;
+        border-color: #60a5fa50;
+        background: #60a5fa15;
+      }
+
+      /* Conversation select */
+      .conversation-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #conversationSelect {
+        background: #1a2332;
+        color: #94a3b8;
+        border: 1px solid #1e293b;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-family: "Inter", system-ui, sans-serif;
+        max-width: 280px;
+        cursor: pointer;
+        transition: border-color 0.25s ease;
+      }
+
+      #conversationSelect:focus {
+        outline: none;
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 2px #60a5fa20;
+      }
+
+      #conversationSelect.linked {
+        border-color: #d9775750;
+        background: #d9775710;
+        color: #f1f5f9;
+      }
+
+      .conv-btn {
+        background: transparent;
+        color: #94a3b8;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        font-size: 11px;
+        font-family: "Inter", system-ui, sans-serif;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.25s ease;
+        padding: 5px 8px;
+        line-height: 1;
+      }
+
+      .conv-btn:hover {
+        color: #f1f5f9;
+        border-color: #475569;
+        background: #1a2332;
+      }
+
       /* Reset button */
       #resetBtn {
         background: transparent;
@@ -642,6 +745,16 @@
         <div class="panel-header">
           <span class="panel-title">Claude Analysis</span>
           <div class="analyst-timer">
+            <div class="conversation-group">
+              <select id="conversationSelect" title="Resume a Claude conversation">
+                <option value="">-- No conversation --</option>
+              </select>
+              <button class="conv-btn" id="convClearBtn" onclick="clearConversation()" title="Clear conversation" style="display:none">&#10005;</button>
+            </div>
+            <div class="analyst-controls">
+              <button class="analyst-btn" id="analystToggleBtn" onclick="toggleAnalyst()">Stop auto-analysis</button>
+              <button class="analyst-btn" id="analystTriggerBtn" onclick="triggerAnalyst()">Analyze now</button>
+            </div>
             <span class="panel-badge" id="analysisStatus">Waiting</span>
             <span id="analystCountdown" class="analyst-countdown"></span>
           </div>
@@ -938,28 +1051,73 @@
 
       setInterval(pollLevels, 200);
 
-      // Analyst progress bar
+      // Analyst progress bar + controls
       const analystBar = document.getElementById("analystBar");
       const analystCountdown = document.getElementById("analystCountdown");
+      const analystToggleBtn = document.getElementById("analystToggleBtn");
+      const analystTriggerBtn = document.getElementById("analystTriggerBtn");
+      let analystPaused = false;
+
+      async function toggleAnalyst() {
+        analystToggleBtn.disabled = true;
+        try {
+          const res = await fetch("/api/analyst/toggle", { method: "POST" });
+          const data = await res.json();
+          analystPaused = data.paused;
+          updateAnalystButtons();
+        } finally {
+          analystToggleBtn.disabled = false;
+        }
+      }
+
+      async function triggerAnalyst() {
+        analystTriggerBtn.disabled = true;
+        try {
+          await fetch("/api/analyst/trigger", { method: "POST" });
+        } finally {
+          setTimeout(() => { analystTriggerBtn.disabled = false; }, 2000);
+        }
+      }
+
+      function updateAnalystButtons() {
+        if (analystPaused) {
+          analystToggleBtn.textContent = "Resume auto-analysis";
+          analystToggleBtn.classList.add("paused");
+        } else {
+          analystToggleBtn.textContent = "Stop auto-analysis";
+          analystToggleBtn.classList.remove("paused");
+        }
+      }
 
       async function pollAnalyst() {
         try {
           const res = await fetch("/api/analyst");
           const data = await res.json();
+          analystPaused = data.paused;
+          updateAnalystButtons();
+
           if (data.state === "analyzing") {
             analystBar.style.width = "100%";
             analystBar.classList.add("analyzing");
-            analystCountdown.textContent = "analyzing...";
-            analysisStatus.textContent = "Analyzing";
+            analystCountdown.textContent = "";
+            analysisStatus.textContent = "Analyzing...";
             analysisStatus.className = "panel-badge analyzing";
+            analystTriggerBtn.disabled = true;
+          } else if (data.paused) {
+            analystBar.classList.remove("analyzing");
+            analystBar.style.width = "0%";
+            analystCountdown.textContent = "";
+            analysisStatus.textContent = "Paused";
+            analysisStatus.className = "panel-badge";
+            analystTriggerBtn.disabled = false;
           } else {
             analystBar.classList.remove("analyzing");
             analystBar.style.width = (data.progress * 100) + "%";
             const r = data.remaining;
-            analystCountdown.textContent = r > 0 ? r + "s" : "";
-            if (analysisStatus.textContent === "Analyzing") {
-              analysisStatus.className = "panel-badge";
-            }
+            analysisStatus.textContent = r > 0 ? r + "s before next auto-analysis" : "Ready";
+            analysisStatus.className = "panel-badge";
+            analystCountdown.textContent = "";
+            analystTriggerBtn.disabled = false;
           }
         } catch {}
       }
@@ -978,6 +1136,73 @@
           body: JSON.stringify({language: langSelect.value}),
         });
       });
+
+      // Conversation selector
+      const conversationSelect = document.getElementById("conversationSelect");
+      const convClearBtn = document.getElementById("convClearBtn");
+
+      async function loadConversations() {
+        try {
+          const [convRes, analystRes] = await Promise.all([
+            fetch("/api/conversations").then(r => r.json()),
+            fetch("/api/analyst").then(r => r.json()),
+          ]);
+          const activeId = analystRes.conversation_id || "";
+          const convs = convRes.conversations || [];
+          conversationSelect.innerHTML = '<option value="">-- No conversation --</option>';
+          // Group by project
+          const groups = {};
+          for (const conv of convs) {
+            if (!groups[conv.project]) groups[conv.project] = [];
+            groups[conv.project].push(conv);
+          }
+          for (const [project, items] of Object.entries(groups)) {
+            const optgroup = document.createElement("optgroup");
+            optgroup.label = project;
+            for (const conv of items) {
+              const opt = document.createElement("option");
+              opt.value = conv.id;
+              opt.textContent = `${conv.date} - ${conv.preview}`;
+              if (conv.id === activeId) opt.selected = true;
+              optgroup.appendChild(opt);
+            }
+            conversationSelect.appendChild(optgroup);
+          }
+          updateConvUI(activeId);
+        } catch {}
+      }
+
+      function updateConvUI(cid) {
+        if (cid) {
+          conversationSelect.classList.add("linked");
+          convClearBtn.style.display = "";
+        } else {
+          conversationSelect.classList.remove("linked");
+          convClearBtn.style.display = "none";
+        }
+      }
+
+      conversationSelect.addEventListener("change", async () => {
+        const cid = conversationSelect.value;
+        await fetch("/api/analyst/conversation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: cid }),
+        });
+        updateConvUI(cid);
+      });
+
+      async function clearConversation() {
+        await fetch("/api/analyst/conversation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: "" }),
+        });
+        conversationSelect.value = "";
+        updateConvUI("");
+      }
+
+      loadConversations();
 
       // Start
       loadDevices();

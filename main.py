@@ -12,9 +12,9 @@ import time
 import traceback
 import webbrowser
 
-from paths import APP_DIR
+from paths import DATA_DIR
 
-CRASH_LOG = os.path.join(APP_DIR, "crash.log")
+CRASH_LOG = os.path.join(DATA_DIR, "crash.log")
 
 
 def _log_crash(module, error):

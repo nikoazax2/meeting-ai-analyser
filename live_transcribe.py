@@ -41,7 +41,7 @@ import numpy as np
 import pyaudiowpatch as pyaudio
 
 # Output files
-from paths import TRANSCRIPTION_FILE as OUTPUT_FILE, TRANSCRIPTION_LATEST as OUTPUT_LATEST, AUDIO_TEMP, APP_DIR
+from paths import TRANSCRIPTION_FILE as OUTPUT_FILE, TRANSCRIPTION_LATEST as OUTPUT_LATEST, AUDIO_TEMP, APP_DIR, DATA_DIR
 
 # Config
 DEFAULT_SEGMENT_DURATION = 10
@@ -49,7 +49,7 @@ SAMPLE_RATE = 16000
 SILENCE_THRESHOLD = 0.001
 
 # Debug log for exe mode
-_TRANSCRIBE_LOG = os.path.join(APP_DIR, "transcribe_debug.log")
+_TRANSCRIBE_LOG = os.path.join(DATA_DIR, "transcribe_debug.log")
 
 def _tlog(msg):
     with open(_TRANSCRIBE_LOG, "a", encoding="utf-8") as f:

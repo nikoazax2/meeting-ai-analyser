@@ -1,0 +1,49 @@
+[09:22:07] === ANALYST STARTED ===
+[09:22:07] Interval: 60s
+[09:26:46] === ANALYST STARTED ===
+[09:26:46] Interval: 60s
+[09:27:46] New transcription (643 chars), launching analysis...
+[09:27:46] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[09:27:46] Calling claude --print (prompt length: 977)
+[09:28:14] Return code: 0
+[09:28:14] Stdout length: 576
+[09:29:14] New transcription (1754 chars), launching analysis...
+[09:29:14] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[09:29:14] Calling claude --print (prompt length: 2088)
+[09:29:41] Return code: 0
+[09:29:41] Stdout length: 1031
+[09:29:53] === ANALYST STARTED ===
+[09:29:53] Interval: 60s
+[09:29:53] New transcription (2174 chars), launching analysis...
+[09:29:53] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[09:29:53] Calling claude --print (prompt length: 2508)
+[09:30:23] Return code: 0
+[09:30:23] Stdout length: 1035
+[09:31:23] New transcription (641 chars), launching analysis...
+[09:31:23] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[09:31:23] Calling claude --print (prompt length: 975)
+[09:31:45] Return code: 0
+[09:31:45] Stdout length: 835
+[10:15:52] === ANALYST STARTED ===
+[10:15:52] Interval: 60s
+[10:15:52] New transcription (703 chars), launching analysis...
+[10:15:52] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[10:15:52] Calling C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd --print (prompt length: 1037)
+[10:20:34] === ANALYST STARTED ===
+[10:20:34] Interval: 60s
+[10:20:34] New transcription (703 chars), launching analysis...
+[10:20:34] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[10:20:34] Calling C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd --print (prompt length: 1037)
+[10:21:04] Return code: 0
+[10:21:04] Stdout length: 736
+[10:25:55] === ANALYST STARTED ===
+[10:25:55] Interval: 60s
+[10:30:56] === ANALYST STARTED ===
+[10:30:56] Interval: 60s
+[10:33:29] === ANALYST STARTED ===
+[10:33:29] Interval: 60s
+[10:33:29] New transcription (64 chars), launching analysis...
+[10:33:29] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[10:33:29] Calling C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd --print (prompt length: 398)
+[10:33:49] Return code: 0
+[10:33:49] Stdout length: 330

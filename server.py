@@ -139,12 +139,17 @@ def restart_transcription():
 
 @app.route("/api/reset", methods=["POST"])
 def reset():
-    """Clear transcription and analysis files"""
-    import datetime
+    """Clear transcription and analysis files completely"""
     with open(TRANSCRIPTION_FILE, "w", encoding="utf-8") as f:
-        f.write(f"=== Live Transcription - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n\n")
+        f.write("")
     with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
         f.write("")
+    # Reset analyst memory so next analysis isn't skipped
+    try:
+        import analyst
+        analyst.reset_content()
+    except Exception:
+        pass
     return {"status": "reset"}
 
 
@@ -189,11 +194,60 @@ def analyst_info():
         import analyst
         s = analyst.analyst_status
         now = time.time()
-        remaining = max(0, s["next_run"] - now)
-        progress = 1 - (remaining / s["interval"]) if s["interval"] > 0 else 1
-        return {"state": s["state"], "remaining": round(remaining), "progress": round(progress, 3), "interval": s["interval"]}
+        remaining = max(0, s["next_run"] - now) if s["next_run"] > 0 else 0
+        progress = 1 - (remaining / s["interval"]) if s["interval"] > 0 and not s["paused"] else 0
+        return {"state": s["state"], "remaining": round(remaining), "progress": round(progress, 3), "interval": s["interval"], "paused": s["paused"], "conversation_id": s.get("conversation_id", "")}
     except Exception:
-        return {"state": "unknown", "remaining": 0, "progress": 0, "interval": 60}
+        return {"state": "unknown", "remaining": 0, "progress": 0, "interval": 60, "paused": False}
+
+
+@app.route("/api/conversations")
+def list_conversations():
+    """List available Claude conversation sessions from all projects"""
+    try:
+        import analyst
+        data = analyst.list_conversations()
+        return data
+    except Exception as e:
+        return {"conversations": [], "base_path": None, "error": str(e)}
+
+
+@app.route("/api/analyst/conversation", methods=["POST"])
+def analyst_conversation():
+    """Set or clear the Claude conversation ID for --resume"""
+    try:
+        import analyst
+        data = request.get_json() or {}
+        cid = data.get("conversation_id", "")
+        analyst.set_conversation_id(cid)
+        return {"conversation_id": cid}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/analyst/toggle", methods=["POST"])
+def analyst_toggle():
+    """Pause or resume automatic analysis"""
+    try:
+        import analyst
+        new_paused = not analyst.analyst_status["paused"]
+        analyst.set_paused(new_paused)
+        return {"paused": new_paused}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/analyst/trigger", methods=["POST"])
+def analyst_trigger():
+    """Trigger an immediate analysis"""
+    try:
+        import analyst
+        if analyst.analyst_status["state"] == "analyzing":
+            return {"status": "already_analyzing"}
+        analyst.trigger_now()
+        return {"status": "triggered"}
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 
 @app.route("/api/levels")

@@ -69,3 +69,8 @@
 [15:32:39] Calling claude --print (prompt length: 3389)
 [15:33:17] Return code: 0
 [15:33:17] Stdout length: 1998
+[09:19:48] === ANALYST STARTED ===
+[09:19:48] Interval: 60s
+[09:19:48] New transcription (2999 chars), launching analysis...
+[09:19:48] Using claude: C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd
+[09:19:48] Calling claude --print (prompt length: 3333)
