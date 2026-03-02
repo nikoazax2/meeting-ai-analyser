@@ -658,6 +658,242 @@
         font-size: 14px;
         font-family: "Inter", system-ui, sans-serif;
       }
+
+      /* Mobile tabs */
+      .mobile-tabs {
+        display: none;
+        background: #111827;
+        border-bottom: 1px solid #1e293b;
+      }
+
+      .mobile-tabs button {
+        flex: 1;
+        background: transparent;
+        color: #64748b;
+        border: none;
+        padding: 10px 0;
+        font-size: 13px;
+        font-family: "Inter", system-ui, sans-serif;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.25s ease;
+      }
+
+      .mobile-tabs button.active {
+        color: #d97757;
+        border-bottom-color: #d97757;
+      }
+
+      /* Responsive: Tablet (<=1024px) */
+      @media (max-width: 1024px) {
+        .header {
+          padding: 10px 16px;
+        }
+
+        .header-left {
+          gap: 10px;
+        }
+
+        .header h1 {
+          font-size: 14px;
+        }
+
+        #conversationSelect {
+          max-width: 180px;
+        }
+
+        .header-right {
+          gap: 10px;
+        }
+      }
+
+      /* Responsive: Mobile (<=768px) */
+      @media (max-width: 768px) {
+        .header {
+          flex-wrap: wrap;
+          height: auto;
+          padding: 10px 12px;
+          gap: 8px;
+        }
+
+        .header-left {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .header h1 {
+          display: none;
+        }
+
+        .header-left img {
+          height: 26px !important;
+        }
+
+        .source-badges {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .source-badge {
+          padding: 4px 8px;
+          font-size: 11px;
+        }
+
+        .source-badge .label {
+          display: none;
+        }
+
+        #micSelect {
+          max-width: 100px;
+          font-size: 11px;
+        }
+
+        .header-right {
+          width: 100%;
+          justify-content: space-between;
+          gap: 8px;
+          font-size: 12px;
+        }
+
+        .segment-count,
+        #lastUpdate {
+          display: none;
+        }
+
+        #langSelect {
+          max-width: 140px;
+          font-size: 11px;
+        }
+
+        #resetBtn {
+          padding: 5px 10px;
+          font-size: 11px;
+        }
+
+        /* Stacked panels with tabs */
+        .mobile-tabs {
+          display: flex;
+        }
+
+        body {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .main {
+          flex-direction: column;
+          height: auto;
+          flex: 1;
+          min-height: 0;
+        }
+
+        .panel {
+          display: none;
+          flex: 1;
+          min-height: 0;
+        }
+
+        .panel.mobile-active {
+          display: flex;
+        }
+
+        /* Analysis panel header compact */
+        .analyst-timer {
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .conversation-group {
+          width: 100%;
+        }
+
+        #conversationSelect {
+          flex: 1;
+          max-width: none;
+        }
+
+        .analyst-controls {
+          flex-wrap: wrap;
+        }
+
+        .analyst-btn {
+          font-size: 10px;
+          padding: 4px 8px;
+        }
+
+        .panel-header {
+          padding: 8px 12px;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .panel-content {
+          padding: 12px;
+        }
+
+        .trans-line {
+          padding: 8px 10px;
+          font-size: 13px;
+        }
+
+        .analysis-content {
+          font-size: 13px;
+        }
+
+        .analysis-content h1 {
+          font-size: 16px;
+        }
+
+        .analysis-content h2 {
+          font-size: 14px;
+        }
+      }
+
+      /* Responsive: Small mobile (<=480px) */
+      @media (max-width: 480px) {
+        .header {
+          padding: 8px 10px;
+        }
+
+        .source-badge {
+          padding: 3px 6px;
+        }
+
+        #micSelect {
+          max-width: 80px;
+        }
+
+        .header-right {
+          gap: 6px;
+        }
+
+        .analyst-btn {
+          font-size: 10px;
+          padding: 3px 6px;
+        }
+
+        .panel-content {
+          padding: 8px;
+        }
+
+        .trans-line {
+          padding: 6px 8px;
+          font-size: 12px;
+        }
+
+        .trans-time {
+          font-size: 10px;
+          margin-right: 6px;
+        }
+
+        .analysis-content {
+          font-size: 12px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -719,6 +955,11 @@
         <span id="segmentCount" class="segment-count">0 segments</span>
         <span id="lastUpdate">--:--:--</span>
       </div>
+    </div>
+
+    <div class="mobile-tabs" id="mobileTabs">
+      <button class="active" data-panel="0">Transcription</button>
+      <button data-panel="1">Analysis</button>
     </div>
 
     <div class="main">
@@ -1203,6 +1444,41 @@
       }
 
       loadConversations();
+
+      // Mobile tabs
+      const mobileTabs = document.getElementById("mobileTabs");
+      const panels = document.querySelectorAll(".main > .panel");
+
+      function isMobile() {
+        return window.matchMedia("(max-width: 768px)").matches;
+      }
+
+      function setActivePanel(index) {
+        mobileTabs.querySelectorAll("button").forEach((btn, i) => {
+          btn.classList.toggle("active", i === index);
+        });
+        panels.forEach((panel, i) => {
+          panel.classList.toggle("mobile-active", i === index);
+        });
+      }
+
+      mobileTabs.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-panel]");
+        if (!btn) return;
+        setActivePanel(parseInt(btn.dataset.panel));
+      });
+
+      function handleResize() {
+        if (isMobile()) {
+          const hasActive = [...panels].some(p => p.classList.contains("mobile-active"));
+          if (!hasActive) setActivePanel(0);
+        } else {
+          panels.forEach(p => p.classList.remove("mobile-active"));
+        }
+      }
+
+      window.addEventListener("resize", handleResize);
+      handleResize();
 
       // Start
       loadDevices();

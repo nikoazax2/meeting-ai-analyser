@@ -46,7 +46,7 @@ from paths import TRANSCRIPTION_FILE as OUTPUT_FILE, TRANSCRIPTION_LATEST as OUT
 # Config
 DEFAULT_SEGMENT_DURATION = 10
 SAMPLE_RATE = 16000
-SILENCE_THRESHOLD = 0.001
+SILENCE_THRESHOLD = 0.005
 
 # Debug log for exe mode
 _TRANSCRIBE_LOG = os.path.join(DATA_DIR, "transcribe_debug.log")
@@ -413,15 +413,30 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
                     # Debug: show levels
                     lb_rms = np.sqrt(np.mean(lb_mono ** 2))
                     mic_rms = np.sqrt(np.mean(mic_mono ** 2))
-                    print(f"[levels: loopback={lb_rms:.4f}, mic={mic_rms:.4f}] ", end="", flush=True)
+                    lb_has_audio = lb_rms > SILENCE_THRESHOLD
+                    mic_has_audio = mic_rms > SILENCE_THRESHOLD
+                    print(f"[levels: lb={lb_rms:.4f}{'*' if lb_has_audio else ''}, mic={mic_rms:.4f}{'*' if mic_has_audio else ''}] ", end="", flush=True)
 
                     # Align sizes (take shortest)
                     min_len = min(len(lb_mono), len(mic_mono))
                     lb_mono = lb_mono[:min_len]
                     mic_mono = mic_mono[:min_len]
 
-                    # Mix: add both sources
-                    mixed = lb_mono + mic_mono
+                    # Smart mix: only include sources with real audio
+                    if lb_has_audio and mic_has_audio:
+                        # Both active: equalize RMS then mix
+                        lb_mono = lb_mono * (max(lb_rms, mic_rms) / lb_rms)
+                        mic_mono = mic_mono * (max(lb_rms, mic_rms) / mic_rms)
+                        mixed = lb_mono + mic_mono
+                    elif mic_has_audio:
+                        # Mic only: use mic directly (no loopback noise)
+                        mixed = mic_mono
+                    elif lb_has_audio:
+                        # Loopback only: use loopback directly
+                        mixed = lb_mono
+                    else:
+                        # Both silent
+                        mixed = lb_mono
 
                     # Normalize to prevent clipping
                     peak = np.max(np.abs(mixed))
