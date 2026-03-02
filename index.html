@@ -894,14 +894,328 @@
           font-size: 12px;
         }
       }
+      /* License badge */
+      .license-badge {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: #1a2332;
+        border: 1px solid #1e293b;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .license-badge.trial {
+        color: #fbbf24;
+        border-color: #fbbf2440;
+      }
+
+      .license-badge.pro {
+        color: #34d399;
+        border-color: #34d39940;
+      }
+
+      .license-badge.expired {
+        color: #ef4444;
+        border-color: #ef444440;
+      }
+
+      /* Trial banner */
+      .trial-banner {
+        background: linear-gradient(90deg, #fbbf2415 0%, #d9775715 100%);
+        border-bottom: 1px solid #fbbf2430;
+        padding: 6px 20px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 13px;
+        color: #fbbf24;
+      }
+
+      .trial-banner a {
+        color: #d97757;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .trial-banner a:hover {
+        text-decoration: underline;
+      }
+
+      /* Update banner */
+      .update-banner {
+        background: linear-gradient(90deg, #60a5fa15 0%, #818cf815 100%);
+        border-bottom: 1px solid #60a5fa30;
+        padding: 6px 20px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 13px;
+        color: #60a5fa;
+      }
+
+      .update-banner a {
+        color: #818cf8;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .update-banner a:hover {
+        text-decoration: underline;
+      }
+
+      /* Expired overlay */
+      .expired-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(11, 15, 25, 0.95);
+        backdrop-filter: blur(8px);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .expired-overlay.visible {
+        display: flex;
+      }
+
+      .expired-card {
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 460px;
+        width: 100%;
+        text-align: center;
+      }
+
+      .expired-card h2 {
+        font-size: 22px;
+        margin-bottom: 8px;
+        color: #f1f5f9;
+      }
+
+      .expired-card p {
+        color: #94a3b8;
+        font-size: 14px;
+        margin-bottom: 24px;
+        line-height: 1.6;
+      }
+
+      .license-input-group {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      .license-input-group input {
+        flex: 1;
+        background: #0b0f19;
+        border: 1px solid #1e293b;
+        color: #f1f5f9;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+      }
+
+      .license-input-group input:focus {
+        outline: none;
+        border-color: #d97757;
+        box-shadow: 0 0 0 2px #d9775730;
+      }
+
+      .license-input-group button {
+        background: #d97757;
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.2s;
+      }
+
+      .license-input-group button:hover {
+        background: #c4684a;
+      }
+
+      .license-input-group button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .license-message {
+        font-size: 13px;
+        margin-bottom: 16px;
+        min-height: 20px;
+      }
+
+      .license-message.error {
+        color: #ef4444;
+      }
+
+      .license-message.success {
+        color: #34d399;
+      }
+
+      .expired-card .buy-link {
+        display: inline-block;
+        color: #d97757;
+        font-size: 14px;
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      .expired-card .buy-link:hover {
+        text-decoration: underline;
+      }
+
+      /* Activation modal (centered with backdrop) */
+      .activate-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(11, 15, 25, 0.8);
+        backdrop-filter: blur(4px);
+        z-index: 9000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .activate-modal-backdrop.visible {
+        display: flex;
+      }
+
+      .activate-modal {
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 16px;
+        padding: 32px;
+        width: 400px;
+        max-width: 90vw;
+        box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+        position: relative;
+      }
+
+      .activate-modal h3 {
+        font-size: 16px;
+        color: #f1f5f9;
+        margin-bottom: 16px;
+      }
+
+      .activate-modal .license-input-group {
+        margin-bottom: 10px;
+      }
+
+      .activate-modal .popup-msg {
+        font-size: 13px;
+        min-height: 18px;
+        margin-bottom: 12px;
+      }
+
+      .activate-modal .popup-links {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+      }
+
+      .activate-modal .popup-links a {
+        color: #d97757;
+        text-decoration: none;
+      }
+
+      .activate-modal .popup-links a:hover {
+        text-decoration: underline;
+      }
+
+      .activate-modal .popup-links .deactivate-link {
+        color: #ef4444;
+      }
+
+      .activate-modal .close-btn {
+        position: absolute;
+        top: 12px;
+        right: 16px;
+        background: none;
+        border: none;
+        color: #64748b;
+        font-size: 18px;
+        cursor: pointer;
+        line-height: 1;
+      }
+
+      .activate-modal .close-btn:hover {
+        color: #f1f5f9;
+      }
     </style>
   </head>
   <body>
+    <!-- Expired overlay -->
+    <div class="expired-overlay" id="expiredOverlay">
+      <div class="expired-card">
+        <h2>Trial Expired</h2>
+        <p>Your 7-day free trial has ended.<br/>Enter your license key to continue using Meeting AI Analyser.</p>
+        <div class="license-input-group">
+          <input type="text" id="licenseKeyInput" placeholder="Enter license key..." />
+          <button id="activateBtn" onclick="activateLicense()">Activate</button>
+        </div>
+        <div class="license-message" id="licenseMessage"></div>
+        <a class="buy-link" href="https://meetingai.lemonsqueezy.com/buy/af49e3f6-97e7-4678-a22c-b4c417c8b7d0" target="_blank">Buy a license &mdash; &euro;29</a>
+      </div>
+    </div>
+
     <!-- Loader overlay -->
     <div class="loader-overlay" id="loaderOverlay">
       <img src="/images/logo%20transparant%20for%20black%20background.png" alt="Logo" class="loader-logo" />
       <div class="loader-spinner"></div>
       <div class="loader-text" id="loaderText">Starting...</div>
+    </div>
+
+    <!-- Activation modal (accessible via badge click or Buy Pro link) -->
+    <div class="activate-modal-backdrop" id="activateModal" onclick="if(event.target===this)closeActivateModal()">
+      <div class="activate-modal">
+        <button class="close-btn" onclick="closeActivateModal()">&times;</button>
+        <h3>Activate License</h3>
+        <div class="license-input-group">
+          <input type="text" id="popupKeyInput" placeholder="Enter your license key..." />
+          <button id="popupActivateBtn" onclick="popupActivate()">Activate</button>
+        </div>
+        <div class="popup-msg" id="popupMsg"></div>
+        <div class="popup-links">
+          <a href="https://meetingai.lemonsqueezy.com/buy/af49e3f6-97e7-4678-a22c-b4c417c8b7d0" target="_blank">Buy a license &mdash; &euro;29</a>
+          <a href="#" class="deactivate-link" id="deactivateLink" onclick="deactivateLicense(event)" style="display:none">Deactivate</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trial banner -->
+    <div class="trial-banner" id="trialBanner">
+      <span>Trial: <strong id="trialDaysLeft">7</strong> days remaining</span>
+      <a href="https://meetingai.lemonsqueezy.com/buy/af49e3f6-97e7-4678-a22c-b4c417c8b7d0" target="_blank" onclick="openActivateModal()">Buy Pro &mdash; &euro;29</a>
+    </div>
+
+    <!-- Update banner -->
+    <div class="update-banner" id="updateBanner">
+      <span>New version <strong id="updateVersion"></strong> available!</span>
+      <a id="updateLink" href="#" target="_blank">Download</a>
     </div>
 
     <div class="header">
@@ -913,6 +1227,7 @@
           style="height: 32px; width: auto; margin-right: 4px"
         />
         <h1>Meeting AI Analyser</h1>
+        <span class="license-badge" id="licenseBadge" style="display:none" onclick="toggleActivatePopup()"></span>
         <div class="source-badges">
           <div class="source-badge" title="Capturing your microphone">
             <div class="audio-bars" id="micBars">
@@ -1480,9 +1795,166 @@
       window.addEventListener("resize", handleResize);
       handleResize();
 
+      // License & Update
+      const expiredOverlay = document.getElementById("expiredOverlay");
+      const trialBanner = document.getElementById("trialBanner");
+      const updateBanner = document.getElementById("updateBanner");
+      const licenseBadge = document.getElementById("licenseBadge");
+      const licenseKeyInput = document.getElementById("licenseKeyInput");
+      const activateBtn = document.getElementById("activateBtn");
+      const licenseMessage = document.getElementById("licenseMessage");
+
+      async function checkAccessStatus() {
+        try {
+          const res = await fetch("/api/license");
+          const data = await res.json();
+          updateAccessUI(data);
+        } catch {}
+      }
+
+      function updateAccessUI(data) {
+        const mode = data.mode;
+        licenseBadge.style.display = "";
+        licenseBadge.className = "license-badge " + mode;
+        if (mode === "trial") {
+          licenseBadge.textContent = "Trial (" + data.days_left + "d)";
+          trialBanner.style.display = "flex";
+          document.getElementById("trialDaysLeft").textContent = data.days_left;
+          expiredOverlay.classList.remove("visible");
+          deactivateLink.style.display = "none";
+        } else if (mode === "licensed") {
+          licenseBadge.textContent = "Pro";
+          trialBanner.style.display = "none";
+          expiredOverlay.classList.remove("visible");
+          deactivateLink.style.display = "";
+        } else {
+          licenseBadge.textContent = "Expired";
+          trialBanner.style.display = "none";
+          expiredOverlay.classList.add("visible");
+          deactivateLink.style.display = "none";
+        }
+      }
+
+      async function activateLicense() {
+        const key = licenseKeyInput.value.trim();
+        if (!key) return;
+        activateBtn.disabled = true;
+        licenseMessage.textContent = "Activating...";
+        licenseMessage.className = "license-message";
+        try {
+          const res = await fetch("/api/license/activate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            licenseMessage.textContent = data.message;
+            licenseMessage.className = "license-message success";
+            setTimeout(() => {
+              expiredOverlay.classList.remove("visible");
+              checkAccessStatus();
+            }, 1000);
+          } else {
+            licenseMessage.textContent = data.message;
+            licenseMessage.className = "license-message error";
+          }
+        } catch (e) {
+          licenseMessage.textContent = "Connection error";
+          licenseMessage.className = "license-message error";
+        } finally {
+          activateBtn.disabled = false;
+        }
+      }
+
+      licenseKeyInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") activateLicense();
+      });
+
+      // Activation modal
+      const activateModal = document.getElementById("activateModal");
+      const popupKeyInput = document.getElementById("popupKeyInput");
+      const popupMsg = document.getElementById("popupMsg");
+      const deactivateLink = document.getElementById("deactivateLink");
+
+      function openActivateModal() {
+        activateModal.classList.add("visible");
+        setTimeout(() => popupKeyInput.focus(), 100);
+      }
+
+      function closeActivateModal() {
+        activateModal.classList.remove("visible");
+      }
+
+      function toggleActivatePopup() {
+        if (activateModal.classList.contains("visible")) {
+          closeActivateModal();
+        } else {
+          openActivateModal();
+        }
+      }
+
+      popupKeyInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") popupActivate();
+      });
+
+      async function popupActivate() {
+        const key = popupKeyInput.value.trim();
+        if (!key) return;
+        document.getElementById("popupActivateBtn").disabled = true;
+        popupMsg.textContent = "Activating...";
+        popupMsg.className = "popup-msg";
+        try {
+          const res = await fetch("/api/license/activate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            popupMsg.textContent = data.message;
+            popupMsg.className = "popup-msg success";
+            setTimeout(() => {
+              closeActivateModal();
+              checkAccessStatus();
+            }, 1000);
+          } else {
+            popupMsg.textContent = data.message;
+            popupMsg.className = "popup-msg error";
+          }
+        } catch {
+          popupMsg.textContent = "Connection error";
+          popupMsg.className = "popup-msg error";
+        } finally {
+          document.getElementById("popupActivateBtn").disabled = false;
+        }
+      }
+
+      async function deactivateLicense(e) {
+        e.preventDefault();
+        if (!confirm("Deactivate your license?")) return;
+        await fetch("/api/license/deactivate", { method: "POST" });
+        activatePopup.classList.remove("visible");
+        checkAccessStatus();
+      }
+
+      async function checkForUpdate() {
+        try {
+          const res = await fetch("/api/update");
+          const data = await res.json();
+          if (data.update_available && data.update_info) {
+            updateBanner.style.display = "flex";
+            document.getElementById("updateVersion").textContent = "v" + data.update_info.latest_version;
+            document.getElementById("updateLink").href = data.update_info.download_url;
+          }
+        } catch {}
+      }
+
       // Start
       loadDevices();
       connectSSE();
+      checkAccessStatus();
+      setTimeout(checkForUpdate, 3000);
       // Backup polling every 5s
       setInterval(pollData, 5000);
     </script>

@@ -23,25 +23,27 @@ import signal
 import sys
 import threading
 import time
-import wave
 
-# Add NVIDIA CUDA DLL path before any CUDA import
-_nvidia_path = os.path.join(
+# Add NVIDIA CUDA DLL path before any CUDA import (auto-detect Python version)
+import glob as _glob
+_nvidia_candidates = _glob.glob(os.path.join(
     os.path.expanduser("~"),
     "AppData", "Local", "Packages",
-    "PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0",
-    "LocalCache", "local-packages", "Python313",
+    "PythonSoftwareFoundation.Python.*",
+    "LocalCache", "local-packages", "Python*",
     "site-packages", "nvidia", "cublas", "bin"
-)
-if os.path.isdir(_nvidia_path):
-    os.environ["PATH"] = _nvidia_path + os.pathsep + os.environ.get("PATH", "")
-    os.add_dll_directory(_nvidia_path)
+))
+for _nvidia_path in _nvidia_candidates:
+    if os.path.isdir(_nvidia_path):
+        os.environ["PATH"] = _nvidia_path + os.pathsep + os.environ.get("PATH", "")
+        os.add_dll_directory(_nvidia_path)
+        break
 
 import numpy as np
 import pyaudiowpatch as pyaudio
 
 # Output files
-from paths import TRANSCRIPTION_FILE as OUTPUT_FILE, TRANSCRIPTION_LATEST as OUTPUT_LATEST, AUDIO_TEMP, APP_DIR, DATA_DIR
+from paths import TRANSCRIPTION_FILE as OUTPUT_FILE, TRANSCRIPTION_LATEST as OUTPUT_LATEST, APP_DIR, DATA_DIR
 
 # Config
 DEFAULT_SEGMENT_DURATION = 10
@@ -182,17 +184,10 @@ def transcribe_segment(model, audio_data, sample_rate, language="en"):
     if is_silence(audio_data):
         return None
 
-    audio_int16 = (audio_data * 32767).astype(np.int16)
-    with wave.open(AUDIO_TEMP, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(sample_rate)
-        wf.writeframes(audio_int16.tobytes())
-
     try:
-        _tlog(f"Transcribing {AUDIO_TEMP} (lang={language})...")
+        _tlog(f"Transcribing segment (lang={language}, {len(audio_data)} samples)...")
         segments, info = model.transcribe(
-            AUDIO_TEMP,
+            audio_data,
             language=language,
             beam_size=5,
             vad_filter=True,
@@ -468,6 +463,13 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
 
                     with open(OUTPUT_LATEST, "w", encoding="utf-8") as f:
                         f.write(text)
+
+                    # Notify SSE stream
+                    try:
+                        import server
+                        server.content_changed.set()
+                    except Exception:
+                        pass
                 else:
                     print("(silence)")
 
@@ -484,8 +486,6 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
 
     finally:
         p.terminate()
-        if os.path.exists(AUDIO_TEMP):
-            os.remove(AUDIO_TEMP)
         print(f"\n[DONE] Transcription saved to: {OUTPUT_FILE}")
 
 

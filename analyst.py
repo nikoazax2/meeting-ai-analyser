@@ -20,10 +20,10 @@ def log(msg):
 
 # Timing state (exposed for server.py)
 analyst_status = {"state": "idle", "last_run": 0, "next_run": 0, "interval": 60, "paused": False, "conversation_id": ""}
+_status_lock = threading.Lock()
 
 # Events for manual trigger and pause control
 _trigger_event = threading.Event()
-_pause_lock = threading.Lock()
 
 
 def trigger_now():
@@ -33,15 +33,24 @@ def trigger_now():
 
 def set_paused(paused):
     """Pause or resume automatic analysis"""
-    analyst_status["paused"] = paused
+    with _status_lock:
+        analyst_status["paused"] = paused
 
 
 def set_conversation_id(cid):
-    analyst_status["conversation_id"] = cid
+    with _status_lock:
+        analyst_status["conversation_id"] = cid
 
 
 def get_conversation_id():
-    return analyst_status["conversation_id"]
+    with _status_lock:
+        return analyst_status["conversation_id"]
+
+
+def get_status_snapshot():
+    """Thread-safe snapshot of analyst_status for server.py"""
+    with _status_lock:
+        return dict(analyst_status)
 
 
 def _find_claude_projects_dir():
@@ -57,8 +66,16 @@ def _find_claude_projects_dir():
     return None
 
 
+_conversations_cache = {"data": None, "ts": 0}
+_CONVERSATIONS_CACHE_TTL = 30
+
+
 def list_conversations(limit=50):
     """Scan all projects in .claude/projects/ for conversation JSONL files"""
+    now = time.time()
+    if _conversations_cache["data"] is not None and (now - _conversations_cache["ts"]) < _CONVERSATIONS_CACHE_TTL:
+        return _conversations_cache["data"]
+
     claude_dir = _find_claude_projects_dir()
     if not claude_dir:
         return {"conversations": [], "base_path": None}
@@ -111,7 +128,10 @@ def list_conversations(limit=50):
         if not preview:
             preview = sid[:16]
         results.append({"id": sid, "project": project, "date": date_str, "preview": preview})
-    return {"conversations": results, "base_path": claude_dir}
+    result = {"conversations": results, "base_path": claude_dir}
+    _conversations_cache["data"] = result
+    _conversations_cache["ts"] = time.time()
+    return result
 
 
 _last_content_lock = threading.Lock()
@@ -216,8 +236,9 @@ def _run(stop_event=None, interval=60):
 
     log("=== ANALYST STARTED ===")
     log(f"Interval: {interval}s")
-    analyst_status["interval"] = interval
-    analyst_status["next_run"] = time.time() + interval
+    with _status_lock:
+        analyst_status["interval"] = interval
+        analyst_status["next_run"] = time.time() + interval
     print("[ANALYST] AI analysis module started")
     print(f"[ANALYST] Interval: {interval}s")
 
@@ -232,8 +253,9 @@ def _run(stop_event=None, interval=60):
 
         # Skip auto-analysis if paused (but allow manual triggers)
         if analyst_status["paused"] and not manual:
-            analyst_status["state"] = "paused"
-            analyst_status["next_run"] = 0
+            with _status_lock:
+                analyst_status["state"] = "paused"
+                analyst_status["next_run"] = 0
             # Wait 1s or until triggered/unpaused
             if stop_event:
                 stop_event.wait(1)
@@ -254,16 +276,25 @@ def _run(stop_event=None, interval=60):
             log(f"New transcription ({len(content)} chars), launching analysis...{trigger_label}")
             print(f"[{timestamp}] Analyzing{trigger_label}...")
 
-            analyst_status["state"] = "analyzing"
+            with _status_lock:
+                analyst_status["state"] = "analyzing"
             analysis = analyze_with_claude(content)
-            analyst_status["state"] = "paused" if analyst_status["paused"] else "idle"
-            analyst_status["last_run"] = time.time()
+            with _status_lock:
+                analyst_status["state"] = "paused" if analyst_status["paused"] else "idle"
+                analyst_status["last_run"] = time.time()
 
             if analysis:
                 with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
                     f.write(f"# Meeting Analysis - {time.strftime('%Y-%m-%d %H:%M')}\n\n")
                     f.write(analysis)
                     f.write("\n")
+
+                # Notify SSE stream
+                try:
+                    import server
+                    server.content_changed.set()
+                except Exception:
+                    pass
 
                 print(f"[{timestamp}] Analysis saved to {ANALYSIS_FILE}")
             else:
@@ -275,7 +306,8 @@ def _run(stop_event=None, interval=60):
             else:
                 print(f"[{timestamp}] Waiting for new transcription...")
 
-        analyst_status["next_run"] = time.time() + interval
+        with _status_lock:
+            analyst_status["next_run"] = time.time() + interval
         if stop_event:
             stop_event.wait(interval)
         else:

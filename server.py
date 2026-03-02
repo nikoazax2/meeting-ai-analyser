@@ -27,6 +27,9 @@ app_status = {"ready": False, "message": "Starting...", "language": "en", "model
 _last_heartbeat = time.time()
 _stop_event_ref = None
 
+# SSE change notification: set by transcribe/analyst when files are updated
+content_changed = threading.Event()
+
 
 def _heartbeat_watcher():
     """Thread that monitors heartbeat and triggers shutdown if browser is closed"""
@@ -192,7 +195,7 @@ def set_language():
 def analyst_info():
     try:
         import analyst
-        s = analyst.analyst_status
+        s = analyst.get_status_snapshot()
         now = time.time()
         remaining = max(0, s["next_run"] - now) if s["next_run"] > 0 else 0
         progress = 1 - (remaining / s["interval"]) if s["interval"] > 0 and not s["paused"] else 0
@@ -264,6 +267,73 @@ def status():
     return app_status
 
 
+@app.route("/api/license")
+def get_license():
+    import license as lic_mod
+    access = lic_mod.check_access()
+    return access
+
+
+@app.route("/api/license/activate", methods=["POST"])
+def activate_license():
+    import license as lic_mod
+    data = request.get_json() or {}
+    key = data.get("key", "").strip()
+    if not key:
+        return {"success": False, "message": "No license key provided"}, 400
+    result = lic_mod.activate_license(key)
+    if result["success"]:
+        access = lic_mod.check_access()
+        app_status["access_mode"] = access["mode"]
+        app_status["licensed"] = True
+        app_status["license_info"] = access.get("license_info")
+        app_status["trial_days_left"] = access.get("days_left", 0)
+        _start_analyst_if_needed()
+    return result
+
+
+@app.route("/api/license/deactivate", methods=["POST"])
+def deactivate_license():
+    import license as lic_mod
+    result = lic_mod.deactivate_license()
+    if result["success"]:
+        access = lic_mod.check_access()
+        app_status["access_mode"] = access["mode"]
+        app_status["licensed"] = False
+        app_status["license_info"] = None
+        app_status["trial_days_left"] = access.get("days_left", 0)
+    return result
+
+
+@app.route("/api/update")
+def get_update():
+    return {
+        "update_available": app_status.get("update_available", False),
+        "update_info": app_status.get("update_info"),
+    }
+
+
+def _start_analyst_if_needed():
+    """Start analyst thread if not already running (after mid-session activation)"""
+    if app_status.get("analysis"):
+        return
+    try:
+        import analyst
+        import traceback
+
+        def _run():
+            try:
+                analyst.start(_stop_event_ref)
+            except Exception:
+                pass
+
+        t = threading.Thread(target=_run, name="analyst", daemon=True)
+        t.start()
+        app_status["analysis"] = True
+    except Exception:
+        pass
+
+
 @app.route("/api/heartbeat")
 def heartbeat():
     global _last_heartbeat
@@ -278,6 +348,10 @@ def stream():
         last_trans_mtime = 0
         last_analysis_mtime = 0
         while True:
+            # Wait for notification or timeout (fallback poll every 5s)
+            content_changed.wait(timeout=5)
+            content_changed.clear()
+
             trans_mtime = os.path.getmtime(TRANSCRIPTION_FILE) if os.path.exists(TRANSCRIPTION_FILE) else 0
             analysis_mtime = os.path.getmtime(ANALYSIS_FILE) if os.path.exists(ANALYSIS_FILE) else 0
 
@@ -292,8 +366,6 @@ def stream():
                 content = read_file_safe(ANALYSIS_FILE)
                 data = json.dumps({"type": "analysis", "content": content})
                 yield f"data: {data}\n\n"
-
-            time.sleep(2)
 
     return Response(generate(), mimetype="text/event-stream")
 

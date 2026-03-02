@@ -13,6 +13,9 @@ import traceback
 import webbrowser
 
 from paths import DATA_DIR
+from version import __version__
+import license as lic_mod
+import updater
 
 CRASH_LOG = os.path.join(DATA_DIR, "crash.log")
 
@@ -30,6 +33,13 @@ app_status = {
     "analysis": False,
     "ready": False,
     "message": "Starting...",
+    "version": __version__,
+    "access_mode": "checking",
+    "trial_days_left": 0,
+    "licensed": False,
+    "license_info": None,
+    "update_available": False,
+    "update_info": None,
 }
 
 
@@ -61,8 +71,16 @@ def main():
     signal.signal(signal.SIGTERM, shutdown)
 
     print("=" * 60)
-    print("  Meeting AI Analyser")
+    print(f"  Meeting AI Analyser v{__version__}")
     print("=" * 60)
+
+    # Check license/trial
+    access = lic_mod.check_access()
+    app_status["access_mode"] = access["mode"]
+    app_status["trial_days_left"] = access.get("days_left", 0)
+    app_status["licensed"] = access["mode"] == "licensed"
+    app_status["license_info"] = access.get("license_info")
+    print(f"[MAIN] Access: {access['mode']}" + (f" ({access.get('days_left', 0)} days left)" if access['mode'] == 'trial' else ""))
 
     # 1. Web server FIRST (starts fast)
     import server
@@ -106,8 +124,11 @@ def main():
     app_status["message"] = "Transcription started"
     print("[MAIN] Transcription started")
 
-    # 4. Claude analysis (optional)
-    if not args.no_analysis:
+    # 4. Claude analysis (optional, gated by license)
+    if access["mode"] == "expired":
+        app_status["analysis"] = False
+        print("[MAIN] Claude analysis disabled (license expired)")
+    elif not args.no_analysis:
         import analyst
 
         def _run_analyst():
@@ -124,6 +145,19 @@ def main():
     else:
         app_status["analysis"] = True
         print("[MAIN] Claude analysis disabled")
+
+    # 5. Check for updates (background)
+    def _check_update():
+        try:
+            info = updater.check_for_update()
+            app_status["update_available"] = info.get("update_available", False)
+            app_status["update_info"] = info if info.get("update_available") else None
+            if info.get("update_available"):
+                print(f"[MAIN] Update available: v{info.get('latest_version')}")
+        except Exception:
+            pass
+
+    threading.Thread(target=_check_update, name="updater", daemon=True).start()
 
     app_status["ready"] = True
     app_status["message"] = "Ready"
