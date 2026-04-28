@@ -1165,6 +1165,222 @@
       .activate-modal .close-btn:hover {
         color: #f1f5f9;
       }
+
+      /* Welcome popup */
+      .welcome-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(11, 15, 25, 0.85);
+        backdrop-filter: blur(6px);
+        z-index: 8000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .welcome-backdrop.visible {
+        display: flex;
+      }
+
+      .welcome-modal {
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 16px;
+        padding: 32px;
+        width: 480px;
+        max-width: 90vw;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      }
+
+      .welcome-stepper {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 28px;
+      }
+
+      .welcome-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #334155;
+        transition: background 0.25s;
+      }
+
+      .welcome-dot.active {
+        background: #d97757;
+      }
+
+      .welcome-step {
+        display: none;
+        text-align: center;
+      }
+
+      .welcome-step.active {
+        display: block;
+      }
+
+      .welcome-icon {
+        font-size: 40px;
+        margin-bottom: 16px;
+        line-height: 1;
+      }
+
+      .welcome-step h2 {
+        font-size: 20px;
+        color: #f1f5f9;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+
+      .welcome-step p {
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1.7;
+        margin-bottom: 6px;
+      }
+
+      .welcome-tour-items {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px;
+        text-align: left;
+      }
+
+      .welcome-tour-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px 14px;
+        background: #0b0f19;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+      }
+
+      .welcome-tour-item .tour-icon {
+        font-size: 20px;
+        flex-shrink: 0;
+        line-height: 1.4;
+      }
+
+      .welcome-tour-item .tour-label {
+        font-size: 13px;
+        color: #cbd5e1;
+        line-height: 1.5;
+      }
+
+      .welcome-tour-item .tour-label strong {
+        color: #f1f5f9;
+      }
+
+      .welcome-claude-status {
+        margin-top: 18px;
+        padding: 14px 18px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .welcome-claude-status.found {
+        background: rgba(52, 211, 153, 0.1);
+        border: 1px solid rgba(52, 211, 153, 0.25);
+        color: #34d399;
+      }
+
+      .welcome-claude-status.not-found {
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+      }
+
+      .welcome-install-box {
+        margin-top: 12px;
+        background: #0b0f19;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+        font-size: 13px;
+        color: #e2e8f0;
+        user-select: all;
+        text-align: left;
+      }
+
+      .welcome-note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      .welcome-link {
+        color: #d97757;
+        text-decoration: none;
+        font-size: 13px;
+      }
+
+      .welcome-link:hover {
+        text-decoration: underline;
+      }
+
+      .welcome-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 28px;
+      }
+
+      .welcome-nav .skip-link {
+        color: #64748b;
+        font-size: 13px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .welcome-nav .skip-link:hover {
+        color: #94a3b8;
+      }
+
+      .welcome-nav-btns {
+        display: flex;
+        gap: 8px;
+      }
+
+      .welcome-btn {
+        padding: 9px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: background 0.2s;
+      }
+
+      .welcome-btn.secondary {
+        background: #1e293b;
+        color: #cbd5e1;
+      }
+
+      .welcome-btn.secondary:hover {
+        background: #334155;
+      }
+
+      .welcome-btn.primary {
+        background: #d97757;
+        color: #fff;
+      }
+
+      .welcome-btn.primary:hover {
+        background: #c4684a;
+      }
     </style>
   </head>
   <body>
@@ -1178,7 +1394,7 @@
           <button id="activateBtn" onclick="activateLicense()">Activate</button>
         </div>
         <div class="license-message" id="licenseMessage"></div>
-        <a class="buy-link" href="https://meetingai.lemonsqueezy.com/buy/af49e3f6-97e7-4678-a22c-b4c417c8b7d0" target="_blank">Buy a license &mdash; &euro;29</a>
+        <a class="buy-link" href="https://meetingai.lemonsqueezy.com/checkout/buy/08d1e75e-f0be-4522-94d6-08def3bf62ce" target="_blank">Buy a license &mdash; &euro;29</a>
       </div>
     </div>
 
@@ -1200,8 +1416,71 @@
         </div>
         <div class="popup-msg" id="popupMsg"></div>
         <div class="popup-links">
-          <a href="https://meetingai.lemonsqueezy.com/buy/af49e3f6-97e7-4678-a22c-b4c417c8b7d0" target="_blank">Buy a license &mdash; &euro;29</a>
+          <a href="https://meetingai.lemonsqueezy.com/checkout/buy/08d1e75e-f0be-4522-94d6-08def3bf62ce" target="_blank">Buy a license &mdash; &euro;29</a>
           <a href="#" class="deactivate-link" id="deactivateLink" onclick="deactivateLicense(event)" style="display:none">Deactivate</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Welcome popup -->
+    <div class="welcome-backdrop" id="welcomeBackdrop">
+      <div class="welcome-modal">
+        <div class="welcome-stepper">
+          <div class="welcome-dot active" data-step="0"></div>
+          <div class="welcome-dot" data-step="1"></div>
+          <div class="welcome-dot" data-step="2"></div>
+        </div>
+
+        <!-- Step 1: Welcome -->
+        <div class="welcome-step active" data-step="0">
+          <div class="welcome-icon">&#127908;</div>
+          <h2>Welcome to Meeting AI Analyser</h2>
+          <p>Real-time meeting transcription powered by Whisper, with AI-driven analysis by Claude.</p>
+          <p>Capture both your microphone and system audio, then get instant meeting summaries, action items, and insights.</p>
+        </div>
+
+        <!-- Step 2: Quick tour -->
+        <div class="welcome-step" data-step="1">
+          <div class="welcome-icon">&#128269;</div>
+          <h2>Quick Tour</h2>
+          <div class="welcome-tour-items">
+            <div class="welcome-tour-item">
+              <span class="tour-icon">&#128196;</span>
+              <span class="tour-label"><strong>Left panel</strong> &mdash; Live transcription from your mic &amp; system audio</span>
+            </div>
+            <div class="welcome-tour-item">
+              <span class="tour-icon">&#129302;</span>
+              <span class="tour-label"><strong>Right panel</strong> &mdash; AI analysis: summary, topics, action items</span>
+            </div>
+            <div class="welcome-tour-item">
+              <span class="tour-icon">&#9881;&#65039;</span>
+              <span class="tour-label"><strong>Top toolbar</strong> &mdash; Mic selection, language, reset, and controls</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Claude CLI check -->
+        <div class="welcome-step" data-step="2">
+          <div class="welcome-icon">&#9889;</div>
+          <h2>Claude Code CLI</h2>
+          <p>The AI analysis feature requires Claude Code CLI installed on your machine.</p>
+          <div id="claudeCheckLoading" style="color:#94a3b8;font-size:13px;margin-top:14px">Checking installation...</div>
+          <div id="claudeCheckResult" style="display:none">
+            <div class="welcome-claude-status" id="claudeStatusBadge"></div>
+            <div id="claudeInstallHelp" style="display:none">
+              <div class="welcome-install-box">npm install -g @anthropic-ai/claude-code</div>
+              <p class="welcome-note">Required for AI analysis. Transcription works without it.</p>
+              <a class="welcome-link" href="https://docs.anthropic.com/en/docs/claude-code" target="_blank">View documentation &rarr;</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="welcome-nav">
+          <button class="skip-link" id="welcomeSkip" onclick="closeWelcome()">Skip</button>
+          <div class="welcome-nav-btns">
+            <button class="welcome-btn secondary" id="welcomeBack" onclick="welcomeNav(-1)" style="display:none">Back</button>
+            <button class="welcome-btn primary" id="welcomeNext" onclick="welcomeNav(1)">Next</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1209,7 +1488,7 @@
     <!-- Trial banner -->
     <div class="trial-banner" id="trialBanner">
       <span>Trial: <strong id="trialDaysLeft">7</strong> days remaining</span>
-      <a href="https://meetingai.lemonsqueezy.com/buy/af49e3f6-97e7-4678-a22c-b4c417c8b7d0" target="_blank" onclick="openActivateModal()">Buy Pro &mdash; &euro;29</a>
+      <a href="https://meetingai.lemonsqueezy.com/checkout/buy/08d1e75e-f0be-4522-94d6-08def3bf62ce" target="_blank" onclick="openActivateModal()">Buy Pro &mdash; &euro;29</a>
     </div>
 
     <!-- Update banner -->
@@ -1362,7 +1641,10 @@
               loaderText.textContent = data.message || "Loading...";
               if (data.ready) {
                 overlay.classList.add("hidden");
-                setTimeout(() => overlay.remove(), 600);
+                setTimeout(() => {
+                  overlay.remove();
+                  maybeShowWelcome();
+                }, 600);
               } else {
                 setTimeout(poll, 500);
               }
@@ -1457,11 +1739,21 @@
       }
 
       // SSE streaming
+      let sseConnected = false;
+      let sseReconnecting = false;
+
       function connectSSE() {
+        if (sseReconnecting) return;
         const evtSource = new EventSource("/api/stream");
+
+        evtSource.onopen = () => {
+          sseConnected = true;
+          sseReconnecting = false;
+        };
 
         evtSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
+          sseConnected = true;
           statusDot.classList.remove("inactive");
 
           if (data.type === "transcription" && data.content !== lastTransContent) {
@@ -1478,19 +1770,25 @@
         };
 
         evtSource.onerror = () => {
+          sseConnected = false;
           statusDot.classList.add("inactive");
           updateSourceBadges(false, false);
           transStatus.textContent = "Disconnected";
           transStatus.className = "panel-badge";
-          setTimeout(() => {
-            evtSource.close();
-            connectSSE();
-          }, 5000);
+          evtSource.close();
+          if (!sseReconnecting) {
+            sseReconnecting = true;
+            setTimeout(() => {
+              sseReconnecting = false;
+              connectSSE();
+            }, 5000);
+          }
         };
       }
 
-      // Fallback polling if SSE fails
+      // Fallback polling — only active when SSE is down
       async function pollData() {
+        if (sseConnected) return;
         try {
           const [transRes, analysisRes] = await Promise.all([fetch("/api/transcription"), fetch("/api/analysis")]);
           const trans = await transRes.json();
@@ -1505,7 +1803,6 @@
             renderAnalysis(analysis.content);
           }
           statusDot.classList.remove("inactive");
-          loopbackDot.classList.remove("inactive");
         } catch {
           statusDot.classList.add("inactive");
           updateSourceBadges(false, false);
@@ -1582,30 +1879,38 @@
       const micBars = document.getElementById("micBars");
       const loopbackBars = document.getElementById("loopbackBars");
 
-      function animateBars(container, level) {
-        const bars = container.querySelectorAll(".audio-bar");
-        const clamped = Math.min(level * 15, 1); // normalize (RMS ~0.001-0.07)
-        const heights = [0.6, 1.0, 0.75]; // relative variation per bar
-        bars.forEach((bar, i) => {
+      // Cache bar element refs to avoid querySelectorAll every tick
+      const micBarEls = micBars.querySelectorAll(".audio-bar");
+      const loopbackBarEls = loopbackBars.querySelectorAll(".audio-bar");
+
+      function animateBars(container, barEls, level) {
+        const clamped = Math.min(level * 15, 1);
+        const heights = [0.6, 1.0, 0.75];
+        barEls.forEach((bar, i) => {
           const h = Math.max(2, clamped * 14 * heights[i] * (0.8 + Math.random() * 0.4));
           bar.style.height = h + "px";
         });
         container.classList.toggle("inactive", clamped < 0.01);
       }
 
+      let levelsFetching = false;
       async function pollLevels() {
+        if (levelsFetching) return;
+        levelsFetching = true;
         try {
           const res = await fetch("/api/levels");
           const data = await res.json();
-          animateBars(micBars, data.mic || 0);
-          animateBars(loopbackBars, data.loopback || 0);
+          animateBars(micBars, micBarEls, data.mic || 0);
+          animateBars(loopbackBars, loopbackBarEls, data.loopback || 0);
         } catch {
-          animateBars(micBars, 0);
-          animateBars(loopbackBars, 0);
+          animateBars(micBars, micBarEls, 0);
+          animateBars(loopbackBars, loopbackBarEls, 0);
+        } finally {
+          levelsFetching = false;
         }
       }
 
-      setInterval(pollLevels, 200);
+      setInterval(pollLevels, 500);
 
       // Analyst progress bar + controls
       const analystBar = document.getElementById("analystBar");
@@ -1948,6 +2253,71 @@
             document.getElementById("updateLink").href = data.update_info.download_url;
           }
         } catch {}
+      }
+
+      // Welcome popup
+      let welcomeStep = 0;
+      let claudeCheckDone = false;
+
+      function maybeShowWelcome() {
+        if (localStorage.getItem('welcomeDone')) return;
+        welcomeStep = 0;
+        updateWelcomeStep();
+        document.getElementById('welcomeBackdrop').classList.add('visible');
+        fetch('/api/claude-check')
+          .then(r => r.json())
+          .then(data => {
+            claudeCheckDone = true;
+            const badge = document.getElementById('claudeStatusBadge');
+            const help = document.getElementById('claudeInstallHelp');
+            document.getElementById('claudeCheckLoading').style.display = 'none';
+            document.getElementById('claudeCheckResult').style.display = 'block';
+            if (data.found) {
+              badge.className = 'welcome-claude-status found';
+              badge.innerHTML = '&#10003; Claude Code CLI detected';
+              help.style.display = 'none';
+            } else {
+              badge.className = 'welcome-claude-status not-found';
+              badge.innerHTML = '&#10007; Claude Code CLI not found';
+              help.style.display = 'block';
+            }
+          })
+          .catch(() => {
+            claudeCheckDone = true;
+            document.getElementById('claudeCheckLoading').textContent = 'Could not check CLI status';
+          });
+      }
+
+      function updateWelcomeStep() {
+        document.querySelectorAll('.welcome-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === welcomeStep);
+        });
+        document.querySelectorAll('.welcome-step').forEach((s, i) => {
+          s.classList.toggle('active', i === welcomeStep);
+        });
+        document.getElementById('welcomeBack').style.display = welcomeStep === 0 ? 'none' : '';
+        const nextBtn = document.getElementById('welcomeNext');
+        if (welcomeStep === 2) {
+          nextBtn.textContent = 'Get Started';
+        } else {
+          nextBtn.textContent = 'Next';
+        }
+      }
+
+      function welcomeNav(dir) {
+        const next = welcomeStep + dir;
+        if (next > 2) {
+          closeWelcome();
+          return;
+        }
+        if (next < 0) return;
+        welcomeStep = next;
+        updateWelcomeStep();
+      }
+
+      function closeWelcome() {
+        localStorage.setItem('welcomeDone', '1');
+        document.getElementById('welcomeBackdrop').classList.remove('visible');
       }
 
       // Start
