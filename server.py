@@ -36,7 +36,7 @@ def _heartbeat_watcher():
     """Thread that monitors heartbeat and triggers shutdown if browser is closed"""
     while True:
         time.sleep(5)
-        if time.time() - _last_heartbeat > 15 and _stop_event_ref:
+        if time.time() - _last_heartbeat > 30 and _stop_event_ref:
             print("[SERVER] Browser disconnected, shutting down...")
             _stop_event_ref.set()
             time.sleep(1)
@@ -416,7 +416,7 @@ def start(stop_event=None, port=5555):
     t = threading.Thread(target=_heartbeat_watcher, daemon=True)
     t.start()
     print(f"[SERVER] Meeting AI Analyser available at http://localhost:{port}")
-    app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
+    app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False, threaded=True)
 
 
 if __name__ == "__main__":
