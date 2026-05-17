@@ -1,29 +1,38 @@
 """
 Meeting AI Analyser - License & Trial management
-LemonSqueezy one-time payment with 7-day free trial
+
+- Paid license: LemonSqueezy one-time, cached locally with periodic revalidation.
+- Free trial: 7 days, enforced server-side via Supabase edge function
+  (anti-bypass: re-install or trial.json deletion cannot reset it because
+   the (email, hwid) tuple is recorded in the cloud).
 """
 import json
 import os
 import time
 import urllib.request
 import urllib.error
+from datetime import datetime, timezone
 
 from paths import TRIAL_FILE, LICENSE_FILE
 
-TRIAL_DAYS = 7
+# License config (LemonSqueezy)
 REVALIDATION_DAYS = 7
 GRACE_PERIOD_DAYS = 30
 LEMONSQUEEZY_API = "https://api.lemonsqueezy.com"
 INSTANCE_NAME = "MeetingAIAnalyser"
 
+# Trial config (Supabase edge function)
+TRIAL_API = "https://wdcyabcpczqlpvpwrgws.supabase.co/functions/v1/meeting-ai-trial"
+TRIAL_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkY3lhYmNwY3pxbHB2cHdyZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjQ1ODIsImV4cCI6MjA5NDYwMDU4Mn0.TzNwvZWJW2lgVQHR3_L86o0gjX1YbLrFb-7BUlPbQxc"
+TRIAL_REVALIDATE_DAYS = 1
+TRIAL_OFFLINE_GRACE_DAYS = 3
+
 
 def check_access():
-    """Check if user has access (trial or license)"""
-    # 1. Check cached license first
+    """Check if user has access (license, trial, expired, or not_started)"""
     lic = _load_license()
     if lic and lic.get("license_key"):
-        valid = _validate_cached_license(lic)
-        if valid:
+        if _validate_cached_license(lic):
             return {
                 "allowed": True,
                 "mode": "licensed",
@@ -34,24 +43,16 @@ def check_access():
                 },
             }
 
-    # 2. Check trial
     trial = _check_trial()
+    if trial.get("not_started"):
+        return {"allowed": False, "mode": "not_started", "days_left": 0, "license_info": None}
     if trial["active"]:
-        return {
-            "allowed": True,
-            "mode": "trial",
-            "days_left": trial["days_left"],
-            "license_info": None,
-        }
+        return {"allowed": True, "mode": "trial", "days_left": trial["days_left"], "license_info": None}
 
-    # 3. Expired
-    return {
-        "allowed": False,
-        "mode": "expired",
-        "days_left": 0,
-        "license_info": None,
-    }
+    return {"allowed": False, "mode": "expired", "days_left": 0, "license_info": None}
 
+
+# ---------------- License (LemonSqueezy) ----------------
 
 def activate_license(key):
     """Activate a license key via LemonSqueezy API"""
@@ -79,9 +80,7 @@ def activate_license(key):
             }
             _save_license(license_data)
             return {"success": True, "message": "License activated!"}
-        else:
-            err = result.get("error", "Activation failed")
-            return {"success": False, "message": str(err)}
+        return {"success": False, "message": str(result.get("error", "Activation failed"))}
     except urllib.error.HTTPError as e:
         try:
             body = json.loads(e.read().decode("utf-8"))
@@ -94,7 +93,6 @@ def activate_license(key):
 
 
 def deactivate_license():
-    """Deactivate the current license"""
     lic = _load_license()
     if not lic or not lic.get("license_key"):
         return {"success": False, "message": "No active license"}
@@ -120,49 +118,7 @@ def deactivate_license():
     return {"success": True, "message": "License deactivated"}
 
 
-def _check_trial():
-    """Check trial status, init if first launch"""
-    if not os.path.exists(TRIAL_FILE):
-        _init_trial()
-
-    try:
-        with open(TRIAL_FILE, "r", encoding="utf-8") as f:
-            trial = json.load(f)
-        started = trial.get("started_at", "")
-        started_ts = time.mktime(time.strptime(started, "%Y-%m-%dT%H:%M:%SZ"))
-        elapsed = time.time() - started_ts
-        days_elapsed = elapsed / 86400
-        days_left = max(0, TRIAL_DAYS - int(days_elapsed))
-        return {"active": days_left > 0, "days_left": days_left}
-    except Exception:
-        _init_trial()
-        return {"active": True, "days_left": TRIAL_DAYS}
-
-
-def _init_trial():
-    """Create trial.json on first launch"""
-    trial = {"started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    with open(TRIAL_FILE, "w", encoding="utf-8") as f:
-        json.dump(trial, f)
-
-
-def _load_license():
-    if not os.path.exists(LICENSE_FILE):
-        return None
-    try:
-        with open(LICENSE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-
-def _save_license(data):
-    with open(LICENSE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-
 def _validate_cached_license(lic):
-    """Re-validate online every REVALIDATION_DAYS, grace period offline"""
     last = lic.get("last_validated", "")
     try:
         last_ts = time.mktime(time.strptime(last, "%Y-%m-%dT%H:%M:%SZ"))
@@ -170,11 +126,9 @@ def _validate_cached_license(lic):
         last_ts = 0
 
     days_since = (time.time() - last_ts) / 86400
-
     if days_since < REVALIDATION_DAYS:
         return lic.get("valid", False)
 
-    # Try online re-validation
     try:
         data = json.dumps({
             "license_key": lic["license_key"],
@@ -195,11 +149,149 @@ def _validate_cached_license(lic):
         _save_license(lic)
         return valid
     except Exception:
-        # Offline: allow grace period
         return days_since < GRACE_PERIOD_DAYS
+
+
+def _load_license():
+    if not os.path.exists(LICENSE_FILE):
+        return None
+    try:
+        with open(LICENSE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _save_license(data):
+    with open(LICENSE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 
 def _mask_key(key):
     if len(key) <= 8:
         return key
     return key[:4] + "..." + key[-4:]
+
+
+# ---------------- Trial (Supabase) ----------------
+
+def start_trial(email):
+    """Start a server-side trial. Called when no local token exists."""
+    email = (email or "").strip().lower()
+    if not email or "@" not in email:
+        return {"success": False, "message": "Invalid email"}
+
+    from hwid import get_hwid
+    try:
+        result = _trial_call("start", {"email": email, "hwid": get_hwid()})
+    except Exception as e:
+        return {"success": False, "message": f"Connection error: {e}"}
+
+    status = result.get("status")
+    if status == "active":
+        _save_trial({
+            "token": result["token"],
+            "email": email,
+            "expires_at": result["expires_at"],
+            "last_validated": _now_iso(),
+        })
+        return {"success": True, "days_left": result.get("days_left", 0)}
+
+    if status == "already_used" or status == "expired":
+        return {
+            "success": False,
+            "already_used": True,
+            "message": result.get("message") or "A trial has already been used for this email or computer.",
+        }
+
+    return {"success": False, "message": result.get("error") or "Unable to start trial"}
+
+
+def _check_trial():
+    trial = _load_trial()
+    if not trial or not trial.get("token"):
+        return {"active": False, "days_left": 0, "not_started": True}
+
+    expires_at = trial.get("expires_at", "")
+    days_left = _days_until(expires_at)
+
+    last = trial.get("last_validated", "")
+    try:
+        last_ts = time.mktime(time.strptime(last, "%Y-%m-%dT%H:%M:%SZ"))
+    except Exception:
+        last_ts = 0
+    days_since = (time.time() - last_ts) / 86400
+
+    if days_since < TRIAL_REVALIDATE_DAYS:
+        return {"active": days_left > 0, "days_left": days_left}
+
+    from hwid import get_hwid
+    try:
+        result = _trial_call("validate", {"token": trial["token"], "hwid": get_hwid()})
+        new_expires = result.get("expires_at", expires_at)
+        trial["expires_at"] = new_expires
+        trial["last_validated"] = _now_iso()
+        _save_trial(trial)
+        return {
+            "active": bool(result.get("valid")),
+            "days_left": result.get("days_left", _days_until(new_expires)),
+        }
+    except Exception:
+        # Offline grace
+        if days_since < TRIAL_OFFLINE_GRACE_DAYS:
+            return {"active": days_left > 0, "days_left": days_left}
+        return {"active": False, "days_left": 0}
+
+
+def _trial_call(action, payload):
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        f"{TRIAL_API}/{action}",
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {TRIAL_ANON_KEY}",
+            "apikey": TRIAL_ANON_KEY,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode("utf-8"))
+        except Exception:
+            raise
+
+
+def _load_trial():
+    if not os.path.exists(TRIAL_FILE):
+        return None
+    try:
+        with open(TRIAL_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _save_trial(data):
+    with open(TRIAL_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+def _now_iso():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _days_until(iso_ts):
+    if not iso_ts:
+        return 0
+    try:
+        ts = iso_ts.replace("Z", "+00:00")
+        target = datetime.fromisoformat(ts)
+        delta = (target - datetime.now(timezone.utc)).total_seconds()
+        return max(0, int((delta + 86399) // 86400))
+    except Exception:
+        return 0

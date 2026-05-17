@@ -332,6 +332,11 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
     def loopback_callback(in_data, frame_count, time_info, status):
         with loopback_lock:
             loopback_frames.append(in_data)
+            # Cap buffer to prevent unbounded growth
+            total = sum(len(f) for f in loopback_frames)
+            while total > max_buffer_bytes and len(loopback_frames) > 1:
+                total -= len(loopback_frames[0])
+                loopback_frames.pop(0)
         a = np.frombuffer(in_data, dtype=np.int16).astype(np.float32) / 32768.0
         audio_levels["loopback"] = float(np.sqrt(np.mean(a ** 2)))
         return (in_data, pyaudio.paContinue)
@@ -339,12 +344,18 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
     def mic_callback(in_data, frame_count, time_info, status):
         with mic_lock:
             mic_frames.append(in_data)
+            total = sum(len(f) for f in mic_frames)
+            while total > max_buffer_bytes and len(mic_frames) > 1:
+                total -= len(mic_frames[0])
+                mic_frames.pop(0)
         a = np.frombuffer(in_data, dtype=np.int16).astype(np.float32) / 32768.0
         audio_levels["mic"] = float(np.sqrt(np.mean(a ** 2)))
         return (in_data, pyaudio.paContinue)
 
     samples_per_segment = segment * lb_sr
     first_segment_samples = min(3 * lb_sr, samples_per_segment)
+    # Hard cap: 3x segment size to prevent unbounded buffer growth
+    max_buffer_bytes = samples_per_segment * 2 * lb_channels * 3
     segment_count = 0
     prev_text = ""
 

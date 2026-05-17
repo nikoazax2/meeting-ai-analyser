@@ -1384,6 +1384,20 @@
     </style>
   </head>
   <body>
+    <!-- Trial-start overlay (1st launch: email required to activate 7-day free trial) -->
+    <div class="expired-overlay" id="trialStartOverlay" style="display:none">
+      <div class="expired-card">
+        <h2>Start your 7-day free trial</h2>
+        <p>Enter your email to activate Meeting AI Analyser.<br/>No credit card required.</p>
+        <div class="license-input-group">
+          <input type="email" id="trialEmailInput" placeholder="your@email.com" />
+          <button id="trialStartBtn" onclick="startTrial()">Start trial</button>
+        </div>
+        <div class="license-message" id="trialMessage"></div>
+        <p style="margin-top:18px;font-size:12px;color:#888">Already have a license? <a href="#" onclick="document.getElementById('trialStartOverlay').style.display='none';openActivateModal();return false" style="color:#d97757">Activate it</a></p>
+      </div>
+    </div>
+
     <!-- Expired overlay -->
     <div class="expired-overlay" id="expiredOverlay">
       <div class="expired-card">
@@ -2119,6 +2133,7 @@
 
       function updateAccessUI(data) {
         const mode = data.mode;
+        const trialStartOverlay = document.getElementById("trialStartOverlay");
         licenseBadge.style.display = "";
         licenseBadge.className = "license-badge " + mode;
         if (mode === "trial") {
@@ -2126,19 +2141,68 @@
           trialBanner.style.display = "flex";
           document.getElementById("trialDaysLeft").textContent = data.days_left;
           expiredOverlay.classList.remove("visible");
+          trialStartOverlay.style.display = "none";
           deactivateLink.style.display = "none";
         } else if (mode === "licensed") {
           licenseBadge.textContent = "Pro";
           trialBanner.style.display = "none";
           expiredOverlay.classList.remove("visible");
+          trialStartOverlay.style.display = "none";
           deactivateLink.style.display = "";
+        } else if (mode === "not_started") {
+          licenseBadge.textContent = "Trial";
+          trialBanner.style.display = "none";
+          expiredOverlay.classList.remove("visible");
+          trialStartOverlay.style.display = "flex";
+          deactivateLink.style.display = "none";
         } else {
           licenseBadge.textContent = "Expired";
           trialBanner.style.display = "none";
           expiredOverlay.classList.add("visible");
+          trialStartOverlay.style.display = "none";
           deactivateLink.style.display = "none";
         }
       }
+
+      async function startTrial() {
+        const emailInput = document.getElementById("trialEmailInput");
+        const btn = document.getElementById("trialStartBtn");
+        const msg = document.getElementById("trialMessage");
+        const email = emailInput.value.trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          msg.textContent = "Please enter a valid email.";
+          msg.className = "license-message error";
+          return;
+        }
+        btn.disabled = true;
+        msg.textContent = "Starting trial...";
+        msg.className = "license-message";
+        try {
+          const res = await fetch("/api/trial/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            msg.textContent = "Trial started!";
+            msg.className = "license-message success";
+            setTimeout(checkAccessStatus, 700);
+          } else {
+            msg.textContent = data.message || "Unable to start trial.";
+            msg.className = "license-message error";
+          }
+        } catch {
+          msg.textContent = "Connection error.";
+          msg.className = "license-message error";
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      document.getElementById("trialEmailInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") startTrial();
+      });
 
       async function activateLicense() {
         const key = licenseKeyInput.value.trim();

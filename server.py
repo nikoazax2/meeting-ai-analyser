@@ -5,6 +5,7 @@ Runs on http://localhost:5555
 """
 import json
 import os
+import shutil
 import threading
 import time
 
@@ -292,6 +293,22 @@ def activate_license():
     return result
 
 
+@app.route("/api/trial/start", methods=["POST"])
+def start_trial_route():
+    import license as lic_mod
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip()
+    if not email:
+        return {"success": False, "message": "Email required"}, 400
+    result = lic_mod.start_trial(email)
+    if result.get("success"):
+        access = lic_mod.check_access()
+        app_status["access_mode"] = access["mode"]
+        app_status["trial_days_left"] = access.get("days_left", 0)
+        _start_analyst_if_needed()
+    return result
+
+
 @app.route("/api/license/deactivate", methods=["POST"])
 def deactivate_license():
     import license as lic_mod
@@ -334,6 +351,21 @@ def _start_analyst_if_needed():
         pass
 
 
+@app.route("/api/claude-check")
+def claude_check():
+    """Check if Claude Code CLI is installed"""
+    for path in [
+        os.path.expanduser("~/AppData/Roaming/npm/claude.cmd"),
+        "C:/Program Files/nodejs/claude.cmd",
+    ]:
+        if os.path.exists(path):
+            return {"found": True, "path": path}
+    which = shutil.which("claude")
+    if which:
+        return {"found": True, "path": which}
+    return {"found": False, "path": None}
+
+
 @app.route("/api/heartbeat")
 def heartbeat():
     global _last_heartbeat
@@ -347,25 +379,30 @@ def stream():
     def generate():
         last_trans_mtime = 0
         last_analysis_mtime = 0
-        while True:
-            # Wait for notification or timeout (fallback poll every 5s)
-            content_changed.wait(timeout=5)
-            content_changed.clear()
+        try:
+            while True:
+                content_changed.wait(timeout=5)
+                content_changed.clear()
 
-            trans_mtime = os.path.getmtime(TRANSCRIPTION_FILE) if os.path.exists(TRANSCRIPTION_FILE) else 0
-            analysis_mtime = os.path.getmtime(ANALYSIS_FILE) if os.path.exists(ANALYSIS_FILE) else 0
+                trans_mtime = os.path.getmtime(TRANSCRIPTION_FILE) if os.path.exists(TRANSCRIPTION_FILE) else 0
+                analysis_mtime = os.path.getmtime(ANALYSIS_FILE) if os.path.exists(ANALYSIS_FILE) else 0
 
-            if trans_mtime != last_trans_mtime:
-                last_trans_mtime = trans_mtime
-                content = read_file_safe(TRANSCRIPTION_FILE)
-                data = json.dumps({"type": "transcription", "content": content})
-                yield f"data: {data}\n\n"
+                if trans_mtime != last_trans_mtime:
+                    last_trans_mtime = trans_mtime
+                    content = read_file_safe(TRANSCRIPTION_FILE)
+                    data = json.dumps({"type": "transcription", "content": content})
+                    yield f"data: {data}\n\n"
 
-            if analysis_mtime != last_analysis_mtime:
-                last_analysis_mtime = analysis_mtime
-                content = read_file_safe(ANALYSIS_FILE)
-                data = json.dumps({"type": "analysis", "content": content})
-                yield f"data: {data}\n\n"
+                if analysis_mtime != last_analysis_mtime:
+                    last_analysis_mtime = analysis_mtime
+                    content = read_file_safe(ANALYSIS_FILE)
+                    data = json.dumps({"type": "analysis", "content": content})
+                    yield f"data: {data}\n\n"
+
+                # Heartbeat to detect broken connections
+                yield ": heartbeat\n\n"
+        except GeneratorExit:
+            pass
 
     return Response(generate(), mimetype="text/event-stream")
 
