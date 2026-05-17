@@ -51,6 +51,7 @@ a = Analysis(
         'paths',
         'version',
         'license',
+        'hwid',
         'updater',
         'live_transcribe',
         'analyst',
