@@ -1381,6 +1381,170 @@
       .welcome-btn.primary:hover {
         background: #c4684a;
       }
+
+      /* ===== Android Studio inspired theme overrides ===== */
+      body {
+        background: #0a0814;
+        position: relative;
+      }
+
+      /* Ambient glow layer behind everything */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(800px circle at 8% 10%, rgba(120, 90, 220, 0.45), transparent 55%),
+          radial-gradient(700px circle at 92% 12%, rgba(217, 119, 87, 0.30), transparent 55%),
+          radial-gradient(1100px circle at 50% 110%, rgba(70, 130, 200, 0.30), transparent 60%);
+        mix-blend-mode: screen;
+      }
+
+      /* Subtle grain to avoid banding */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background-image: radial-gradient(rgba(255,255,255,0.012) 1px, transparent 1px);
+        background-size: 3px 3px;
+        opacity: 0.6;
+      }
+
+      /* Float main app above the glow (overlays keep their own positioning) */
+      .header,
+      .main {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Header as floating window */
+      .header {
+        margin: 10px 12px 0 12px;
+        padding: 12px 22px;
+        background: rgba(20, 18, 32, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.04) inset,
+          0 8px 32px rgba(0, 0, 0, 0.4),
+          0 0 0 1px rgba(120, 90, 220, 0.08);
+      }
+
+      .header::after {
+        display: none;
+      }
+
+      /* Body becomes flex column so .main fills remaining space */
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Main area: flex-grow, gap between windows, padding around */
+      .main {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        gap: 12px;
+        padding: 12px;
+        background: transparent;
+      }
+
+      /* Panels as floating windows */
+      .panel {
+        background: rgba(16, 14, 26, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.04) inset,
+          0 8px 32px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+      }
+
+      .panel-header {
+        background: linear-gradient(180deg, rgba(30, 26, 48, 0.55) 0%, rgba(20, 18, 32, 0.3) 100%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      /* Modal cards: same windowed style + a stronger glow */
+      .expired-card,
+      .activate-modal,
+      .welcome-modal {
+        background: rgba(20, 18, 32, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        backdrop-filter: blur(24px) saturate(140%);
+        -webkit-backdrop-filter: blur(24px) saturate(140%);
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.05) inset,
+          0 30px 80px rgba(0, 0, 0, 0.55),
+          0 0 80px rgba(120, 90, 220, 0.25),
+          0 0 0 1px rgba(120, 90, 220, 0.12);
+      }
+
+      /* Loader window */
+      .loader-overlay {
+        background: rgba(10, 8, 20, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+
+      /* Trial / update banner: status-bar pills at bottom right */
+      .trial-banner,
+      .update-banner {
+        position: fixed;
+        bottom: 12px;
+        z-index: 5;
+        margin: 0;
+        padding: 3px 12px !important;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(20, 18, 32, 0.9) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        font-size: 11px !important;
+        min-height: 0;
+        height: 24px;
+        line-height: 1;
+        gap: 8px !important;
+      }
+
+      .trial-banner { right: 12px; }
+      .update-banner { right: 12px; bottom: 44px; }
+
+      .trial-banner a,
+      .update-banner a { font-size: 11px; }
+
+      /* Soften old hard backgrounds inside panels for transparency layering */
+      .panel-content::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .panel-content::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      /* Source badges in header: tighter look */
+      .source-badge {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.07);
+      }
+
+      /* Mobile: remove the gap to keep usability */
+      @media (max-width: 900px) {
+        .header { margin: 0; border-radius: 0; border: none; }
+        .main { padding: 0; gap: 0; }
+        .panel { border-radius: 0; border: none; }
+      }
     </style>
   </head>
   <body>

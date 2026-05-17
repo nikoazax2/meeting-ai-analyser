@@ -1,0 +1,54 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - img "Logo"
+    - generic: Ready
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - img "Logo" [ref=e4]
+      - heading "Meeting AI Analyser" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic "Capturing your microphone" [ref=e7]:
+          - generic [ref=e12]: 🎤
+          - combobox "Select microphone" [ref=e13] [cursor=pointer]:
+            - option "No microphone" [selected]
+        - generic "System audio capture (what others say in the meeting)" [ref=e14]:
+          - generic [ref=e19]: 🔊
+          - generic [ref=e20]: Meeting audio
+    - generic [ref=e21]:
+      - combobox "Transcription language" [ref=e22] [cursor=pointer]:
+        - option "🌐 English" [selected]
+        - option "🌐 Français"
+        - option "🌐 Español"
+        - option "🌐 Deutsch"
+        - option "🌐 Italiano"
+        - option "🌐 Português"
+        - option "🌐 Nederlands"
+        - option "🌐 日本語"
+        - option "🌐 中文"
+        - option "🌐 한국어"
+        - option "🌐 Русский"
+        - option "🌐 العربية"
+      - button "Reset" [ref=e23] [cursor=pointer]
+      - generic [ref=e24]: 0 segments
+      - generic [ref=e25]: "--:--:--"
+  - generic [ref=e26]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]: Transcription
+        - generic [ref=e30]: Live
+      - generic [ref=e32]:
+        - img [ref=e33]
+        - paragraph [ref=e36]: Listening...
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]: Claude Analysis
+        - generic [ref=e40]:
+          - combobox "Resume a Claude conversation" [ref=e42] [cursor=pointer]:
+            - option "-- No conversation --" [selected]
+          - generic [ref=e43]:
+            - button "Stop auto-analysis" [ref=e44] [cursor=pointer]
+            - button "Analyze now" [ref=e45] [cursor=pointer]
+          - generic [ref=e46]: Waiting
+      - generic [ref=e49]:
+        - img [ref=e50]
+        - paragraph [ref=e54]: Analysis will appear after the first segment...
