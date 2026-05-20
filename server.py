@@ -317,6 +317,48 @@ def get_update():
     }
 
 
+@app.route("/api/update/install", methods=["POST"])
+def install_update():
+    """Download the Setup installer and run it silently. The app exits so
+    Inno Setup can overwrite the exe; the installer relaunches the app when done."""
+    import tempfile
+    import urllib.request
+
+    info = app_status.get("update_info") or {}
+    url = info.get("download_url", "")
+    if not url or not url.lower().endswith(".exe"):
+        return {"success": False, "error": "No installer asset available"}, 400
+    if "setup" not in url.lower():
+        return {"success": False, "error": "Latest release has no Setup installer (only a portable exe). Please download manually."}, 400
+
+    try:
+        tmp_dir = tempfile.gettempdir()
+        setup_path = os.path.join(tmp_dir, "MeetingAIAnalyser-Setup.exe")
+        req = urllib.request.Request(url, headers={"User-Agent": "MeetingAIAnalyser"})
+        with urllib.request.urlopen(req, timeout=60) as resp, open(setup_path, "wb") as f:
+            shutil.copyfileobj(resp, f)
+
+        # Wrapper batch: wait for our process to exit, then run the installer
+        wrapper = os.path.join(tmp_dir, "MeetingAIAnalyser-Update.bat")
+        with open(wrapper, "w", encoding="ascii") as f:
+            f.write(
+                "@echo off\r\n"
+                "timeout /t 2 /nobreak >nul\r\n"
+                f'"{setup_path}" /SILENT /SUPPRESSMSGBOXES /NORESTART\r\n'
+            )
+        subprocess.Popen(
+            ["cmd.exe", "/c", wrapper],
+            creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+            close_fds=True,
+        )
+
+        # Exit the app so Inno can replace the exe
+        threading.Timer(1, lambda: os._exit(0)).start()
+        return {"success": True, "message": "Installing update..."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
 def _start_analyst_if_needed():
     """Start analyst thread if not already running (after mid-session activation)"""
     if app_status.get("analysis"):

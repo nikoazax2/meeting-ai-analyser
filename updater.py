@@ -27,11 +27,18 @@ def check_for_update():
             return {"update_available": False}
 
         if _version_newer(tag, __version__):
+            # Prefer the Setup installer over a bare exe
             download_url = ""
             for asset in data.get("assets", []):
-                if asset.get("name", "").endswith(".exe"):
+                name = asset.get("name", "")
+                if name.lower().endswith(".exe") and "setup" in name.lower():
                     download_url = asset.get("browser_download_url", "")
                     break
+            if not download_url:
+                for asset in data.get("assets", []):
+                    if asset.get("name", "").endswith(".exe"):
+                        download_url = asset.get("browser_download_url", "")
+                        break
             if not download_url:
                 download_url = data.get("html_url", "")
             return {

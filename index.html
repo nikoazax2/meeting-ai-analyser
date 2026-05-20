@@ -1672,7 +1672,8 @@
     <!-- Update banner -->
     <div class="update-banner" id="updateBanner">
       <span>New version <strong id="updateVersion"></strong> available!</span>
-      <a id="updateLink" href="#" target="_blank">Download</a>
+      <a id="updateInstall" href="#">Install now</a>
+      <a id="updateLink" href="#" target="_blank">Download manually</a>
     </div>
 
     <div class="header">
@@ -2479,6 +2480,27 @@
             updateBanner.style.display = "flex";
             document.getElementById("updateVersion").textContent = "v" + data.update_info.latest_version;
             document.getElementById("updateLink").href = data.update_info.download_url;
+            const installBtn = document.getElementById("updateInstall");
+            const isSetup = (data.update_info.download_url || "").toLowerCase().includes("setup");
+            installBtn.style.display = isSetup ? "" : "none";
+            installBtn.onclick = async (e) => {
+              e.preventDefault();
+              installBtn.textContent = "Installing...";
+              installBtn.style.pointerEvents = "none";
+              try {
+                const r = await fetch("/api/update/install", { method: "POST" });
+                const j = await r.json();
+                if (!j.success) {
+                  alert("Update failed: " + (j.error || "unknown"));
+                  installBtn.textContent = "Install now";
+                  installBtn.style.pointerEvents = "";
+                }
+              } catch (err) {
+                alert("Update failed: " + err);
+                installBtn.textContent = "Install now";
+                installBtn.style.pointerEvents = "";
+              }
+            };
           }
         } catch {}
       }
