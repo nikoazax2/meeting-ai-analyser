@@ -70,6 +70,18 @@ audio_levels = {"loopback": 0.0, "mic": 0.0}
 # Active language (mutable, exposed for server.py)
 active_language = "en"
 
+# Restart signaling (cross-thread). Set by server.py /api/restart.
+_restart_event = threading.Event()
+_pending_mic_device = None
+
+
+def request_restart(mic_device=None):
+    """Ask the running transcription loop to close its audio streams and
+    reopen them (optionally with a different mic). Safe to call from any thread."""
+    global _pending_mic_device
+    _pending_mic_device = mic_device
+    _restart_event.set()
+
 
 def signal_handler(sig, frame):
     global running
@@ -255,8 +267,9 @@ def start(stop_event, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
 
 def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
          model_size="small", language="en", no_mic=False):
-    """Main transcription logic"""
-    global running, active_language
+    """Main transcription logic with auto-restart on stream death + on-demand
+    restart via request_restart() (used by /api/restart to switch mic)."""
+    global running, active_language, active_mic_id
     active_language = language
 
     def is_running():
@@ -264,51 +277,9 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
             return False
         return running
 
-    p = pyaudio.PyAudio()
-
-    # === Loopback device (system audio) ===
-    loopback_dev = find_wasapi_loopback(p)
-    if loopback_dev is None:
-        print("[ERROR] No WASAPI loopback device found.")
-        p.terminate()
-        return
-
-    lb_channels = int(loopback_dev["maxInputChannels"])
-    lb_sr = int(loopback_dev["defaultSampleRate"])
-    lb_index = int(loopback_dev["index"])
-
-    # === Microphone device ===
-    mic_dev = None
-    mic_channels = 1
-    mic_sr = 48000
-    mic_index = None
-    use_mic = not no_mic
-
-    if use_mic:
-        mic_dev = find_mic_device(p, mic_device)
-        if mic_dev is None:
-            print("[WARN] No microphone found, loopback only mode.")
-            use_mic = False
-        else:
-            mic_channels = int(mic_dev["maxInputChannels"])
-            mic_sr = int(mic_dev["defaultSampleRate"])
-            mic_index = int(mic_dev["index"])
-            global active_mic_id
-            active_mic_id = mic_index
-
-    print(f"\n[CONFIG] Loopback: {loopback_dev['name']} ({lb_channels}ch, {lb_sr}Hz)")
-    if use_mic:
-        print(f"[CONFIG] Mic:      {mic_dev['name']} ({mic_channels}ch, {mic_sr}Hz)")
-    else:
-        print(f"[CONFIG] Mic:      disabled")
-    print(f"[CONFIG] Segments: {segment}s")
-    print(f"[CONFIG] Model: {model_size}, Language: {language}")
-    print(f"[CONFIG] Output: {OUTPUT_FILE}")
-
-    # Load Whisper
+    # Load Whisper ONCE — survives across stream restarts
     model = load_whisper_model(model_size)
     if model is None:
-        p.terminate()
         return
 
     # Init output file
@@ -317,187 +288,239 @@ def _run(stop_event=None, mic_device=None, segment=DEFAULT_SEGMENT_DURATION,
 
     print("\n" + "=" * 60)
     print("  TRANSCRIPTION RUNNING - Ctrl+C to stop")
-    if use_mic:
-        print("  Sources: system audio + microphone")
-    else:
-        print("  Source: system audio only")
     print("=" * 60 + "\n")
 
-    # Thread-safe buffers
-    loopback_lock = threading.Lock()
-    mic_lock = threading.Lock()
-    loopback_frames = []
-    mic_frames = []
-
-    def loopback_callback(in_data, frame_count, time_info, status):
-        with loopback_lock:
-            loopback_frames.append(in_data)
-            # Cap buffer to prevent unbounded growth
-            total = sum(len(f) for f in loopback_frames)
-            while total > max_buffer_bytes and len(loopback_frames) > 1:
-                total -= len(loopback_frames[0])
-                loopback_frames.pop(0)
-        a = np.frombuffer(in_data, dtype=np.int16).astype(np.float32) / 32768.0
-        audio_levels["loopback"] = float(np.sqrt(np.mean(a ** 2)))
-        return (in_data, pyaudio.paContinue)
-
-    def mic_callback(in_data, frame_count, time_info, status):
-        with mic_lock:
-            mic_frames.append(in_data)
-            total = sum(len(f) for f in mic_frames)
-            while total > max_buffer_bytes and len(mic_frames) > 1:
-                total -= len(mic_frames[0])
-                mic_frames.pop(0)
-        a = np.frombuffer(in_data, dtype=np.int16).astype(np.float32) / 32768.0
-        audio_levels["mic"] = float(np.sqrt(np.mean(a ** 2)))
-        return (in_data, pyaudio.paContinue)
-
-    samples_per_segment = segment * lb_sr
-    first_segment_samples = min(3 * lb_sr, samples_per_segment)
-    # Hard cap: 3x segment size to prevent unbounded buffer growth
-    max_buffer_bytes = samples_per_segment * 2 * lb_channels * 3
     segment_count = 0
     prev_text = ""
+    current_mic_device = mic_device
 
-    try:
-        # Open loopback stream
-        stream_lb = p.open(
-            format=pyaudio.paInt16,
-            channels=lb_channels,
-            rate=lb_sr,
-            input=True,
-            input_device_index=lb_index,
-            frames_per_buffer=int(lb_sr * 0.5),
-            stream_callback=loopback_callback,
-        )
-        stream_lb.start_stream()
+    # Outer loop: (re)open audio streams. Exits only on stop_event.
+    while is_running():
+        # Consume any pending restart request from a previous iteration
+        if _restart_event.is_set():
+            _restart_event.clear()
+            if _pending_mic_device is not None:
+                current_mic_device = _pending_mic_device
 
-        # Open mic stream
+        p = pyaudio.PyAudio()
+        stream_lb = None
         stream_mic = None
-        if use_mic:
-            stream_mic = p.open(
-                format=pyaudio.paInt16,
-                channels=mic_channels,
-                rate=mic_sr,
-                input=True,
-                input_device_index=mic_index,
-                frames_per_buffer=int(mic_sr * 0.5),
-                stream_callback=mic_callback,
-            )
-            stream_mic.start_stream()
+        try:
+            loopback_dev = find_wasapi_loopback(p)
+            if loopback_dev is None:
+                print("[ERROR] No WASAPI loopback device found. Retrying in 5s...")
+                _tlog("No WASAPI loopback device. Retrying.")
+                p.terminate()
+                time.sleep(5)
+                continue
 
-        while is_running() and stream_lb.is_active():
-            time.sleep(0.5)
+            lb_channels = int(loopback_dev["maxInputChannels"])
+            lb_sr = int(loopback_dev["defaultSampleRate"])
+            lb_index = int(loopback_dev["index"])
 
-            # Check if we have enough loopback samples
-            with loopback_lock:
-                total_bytes = sum(len(f) for f in loopback_frames)
-            total_samples = total_bytes // (2 * lb_channels)
+            mic_dev = None
+            mic_channels = 1
+            mic_sr = 48000
+            mic_index = None
+            use_mic = not no_mic
 
-            threshold = first_segment_samples if segment_count == 0 else samples_per_segment
-            if total_samples >= threshold:
-                segment_count += 1
+            if use_mic:
+                mic_dev = find_mic_device(p, current_mic_device)
+                if mic_dev is None:
+                    print("[WARN] No microphone found, loopback only mode.")
+                    use_mic = False
+                else:
+                    mic_channels = int(mic_dev["maxInputChannels"])
+                    mic_sr = int(mic_dev["defaultSampleRate"])
+                    mic_index = int(mic_dev["index"])
+                    active_mic_id = mic_index
 
-                # Collect loopback frames
+            print(f"\n[CONFIG] Loopback: {loopback_dev['name']} ({lb_channels}ch, {lb_sr}Hz)")
+            if use_mic:
+                print(f"[CONFIG] Mic:      {mic_dev['name']} ({mic_channels}ch, {mic_sr}Hz)")
+            else:
+                print(f"[CONFIG] Mic:      disabled")
+            print(f"[CONFIG] Segments: {segment}s | Model: {model_size} | Language: {language}")
+
+            # Thread-safe buffers — recreated on each restart to drop stale audio
+            loopback_lock = threading.Lock()
+            mic_lock = threading.Lock()
+            loopback_frames = []
+            mic_frames = []
+
+            samples_per_segment = segment * lb_sr
+            first_segment_samples = min(3 * lb_sr, samples_per_segment)
+            max_buffer_bytes = samples_per_segment * 2 * lb_channels * 3
+
+            def loopback_callback(in_data, frame_count, time_info, status):
                 with loopback_lock:
-                    lb_raw = b"".join(loopback_frames)
-                    loopback_frames.clear()
+                    loopback_frames.append(in_data)
+                    total = sum(len(f) for f in loopback_frames)
+                    while total > max_buffer_bytes and len(loopback_frames) > 1:
+                        total -= len(loopback_frames[0])
+                        loopback_frames.pop(0)
+                a = np.frombuffer(in_data, dtype=np.int16).astype(np.float32) / 32768.0
+                audio_levels["loopback"] = float(np.sqrt(np.mean(a ** 2)))
+                return (in_data, pyaudio.paContinue)
 
-                # Collect mic frames
-                mic_raw = None
-                if use_mic:
-                    with mic_lock:
-                        mic_raw = b"".join(mic_frames)
-                        mic_frames.clear()
+            def mic_callback(in_data, frame_count, time_info, status):
+                with mic_lock:
+                    mic_frames.append(in_data)
+                    total = sum(len(f) for f in mic_frames)
+                    while total > max_buffer_bytes and len(mic_frames) > 1:
+                        total -= len(mic_frames[0])
+                        mic_frames.pop(0)
+                a = np.frombuffer(in_data, dtype=np.int16).astype(np.float32) / 32768.0
+                audio_levels["mic"] = float(np.sqrt(np.mean(a ** 2)))
+                return (in_data, pyaudio.paContinue)
 
-                # Convert to mono 16kHz
-                lb_mono = to_mono_16k(lb_raw, lb_channels, lb_sr)
+            stream_lb = p.open(
+                format=pyaudio.paInt16,
+                channels=lb_channels,
+                rate=lb_sr,
+                input=True,
+                input_device_index=lb_index,
+                frames_per_buffer=int(lb_sr * 0.5),
+                stream_callback=loopback_callback,
+            )
+            stream_lb.start_stream()
 
-                if use_mic and mic_raw and len(mic_raw) > 0:
-                    mic_mono = to_mono_16k(mic_raw, mic_channels, mic_sr)
+            if use_mic:
+                stream_mic = p.open(
+                    format=pyaudio.paInt16,
+                    channels=mic_channels,
+                    rate=mic_sr,
+                    input=True,
+                    input_device_index=mic_index,
+                    frames_per_buffer=int(mic_sr * 0.5),
+                    stream_callback=mic_callback,
+                )
+                stream_mic.start_stream()
 
-                    # Debug: show levels
-                    lb_rms = np.sqrt(np.mean(lb_mono ** 2))
-                    mic_rms = np.sqrt(np.mean(mic_mono ** 2))
-                    lb_has_audio = lb_rms > SILENCE_THRESHOLD
-                    mic_has_audio = mic_rms > SILENCE_THRESHOLD
-                    print(f"[levels: lb={lb_rms:.4f}{'*' if lb_has_audio else ''}, mic={mic_rms:.4f}{'*' if mic_has_audio else ''}] ", end="", flush=True)
+            # Inner capture loop
+            while is_running():
+                if _restart_event.is_set():
+                    print("[RESTART] Restart requested, reopening audio streams...")
+                    _tlog("Restart requested via request_restart()")
+                    break
+                if not stream_lb.is_active():
+                    print("[RESTART] Loopback stream died, reopening...")
+                    _tlog("Loopback stream became inactive — auto-restart")
+                    break
 
-                    # Align sizes (take shortest)
-                    min_len = min(len(lb_mono), len(mic_mono))
-                    lb_mono = lb_mono[:min_len]
-                    mic_mono = mic_mono[:min_len]
+                time.sleep(0.5)
 
-                    # Smart mix: only include sources with real audio
-                    if lb_has_audio and mic_has_audio:
-                        # Both active: equalize RMS then mix
-                        lb_mono = lb_mono * (max(lb_rms, mic_rms) / lb_rms)
-                        mic_mono = mic_mono * (max(lb_rms, mic_rms) / mic_rms)
-                        mixed = lb_mono + mic_mono
-                    elif mic_has_audio:
-                        # Mic only: use mic directly (no loopback noise)
-                        mixed = mic_mono
-                    elif lb_has_audio:
-                        # Loopback only: use loopback directly
-                        mixed = lb_mono
+                with loopback_lock:
+                    total_bytes = sum(len(f) for f in loopback_frames)
+                total_samples = total_bytes // (2 * lb_channels)
+
+                threshold = first_segment_samples if segment_count == 0 else samples_per_segment
+                if total_samples >= threshold:
+                    segment_count += 1
+
+                    with loopback_lock:
+                        lb_raw = b"".join(loopback_frames)
+                        loopback_frames.clear()
+
+                    mic_raw = None
+                    if use_mic:
+                        with mic_lock:
+                            mic_raw = b"".join(mic_frames)
+                            mic_frames.clear()
+
+                    lb_mono = to_mono_16k(lb_raw, lb_channels, lb_sr)
+
+                    if use_mic and mic_raw and len(mic_raw) > 0:
+                        mic_mono = to_mono_16k(mic_raw, mic_channels, mic_sr)
+
+                        lb_rms = np.sqrt(np.mean(lb_mono ** 2))
+                        mic_rms = np.sqrt(np.mean(mic_mono ** 2))
+                        lb_has_audio = lb_rms > SILENCE_THRESHOLD
+                        mic_has_audio = mic_rms > SILENCE_THRESHOLD
+                        print(f"[levels: lb={lb_rms:.4f}{'*' if lb_has_audio else ''}, mic={mic_rms:.4f}{'*' if mic_has_audio else ''}] ", end="", flush=True)
+
+                        min_len = min(len(lb_mono), len(mic_mono))
+                        lb_mono = lb_mono[:min_len]
+                        mic_mono = mic_mono[:min_len]
+
+                        if lb_has_audio and mic_has_audio:
+                            lb_mono = lb_mono * (max(lb_rms, mic_rms) / lb_rms)
+                            mic_mono = mic_mono * (max(lb_rms, mic_rms) / mic_rms)
+                            mixed = lb_mono + mic_mono
+                        elif mic_has_audio:
+                            mixed = mic_mono
+                        elif lb_has_audio:
+                            mixed = lb_mono
+                        else:
+                            mixed = lb_mono
+
+                        peak = np.max(np.abs(mixed))
+                        if peak > 0.95:
+                            mixed = mixed * (0.95 / peak)
+
+                        audio_final = mixed
                     else:
-                        # Both silent
-                        mixed = lb_mono
+                        audio_final = lb_mono
 
-                    # Normalize to prevent clipping
-                    peak = np.max(np.abs(mixed))
-                    if peak > 0.95:
-                        mixed = mixed * (0.95 / peak)
+                    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+                    print(f"[{timestamp}] Segment #{segment_count}...", end=" ", flush=True)
 
-                    audio_final = mixed
-                else:
-                    audio_final = lb_mono
+                    raw_text = transcribe_segment(model, audio_final, SAMPLE_RATE, active_language)
 
-                timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-                print(f"[{timestamp}] Segment #{segment_count}...", end=" ", flush=True)
+                    if raw_text:
+                        text = deduplicate(raw_text, prev_text)
+                        prev_text = raw_text
 
-                raw_text = transcribe_segment(model, audio_final, SAMPLE_RATE, active_language)
+                        if not text.strip():
+                            print("(duplicate)")
+                            continue
 
-                if raw_text:
-                    text = deduplicate(raw_text, prev_text)
-                    prev_text = raw_text
+                        line = f"[{timestamp}] {text}"
+                        print(f"\n  >> {text}")
 
-                    if not text.strip():
-                        print("(duplicate)")
-                        continue
+                        with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
+                            f.write(line + "\n")
 
-                    line = f"[{timestamp}] {text}"
-                    print(f"\n  >> {text}")
+                        with open(OUTPUT_LATEST, "w", encoding="utf-8") as f:
+                            f.write(text)
 
-                    with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
-                        f.write(line + "\n")
+                        try:
+                            import server
+                            server.content_changed.set()
+                        except Exception:
+                            pass
+                    else:
+                        print("(silence)")
 
-                    with open(OUTPUT_LATEST, "w", encoding="utf-8") as f:
-                        f.write(text)
+        except Exception as e:
+            print(f"\n[ERROR] Audio stream error: {e}")
+            _tlog(f"Stream loop error: {e}")
+            import traceback
+            traceback.print_exc()
+            # Brief pause before retrying to avoid a tight crash loop
+            time.sleep(2)
 
-                    # Notify SSE stream
-                    try:
-                        import server
-                        server.content_changed.set()
-                    except Exception:
-                        pass
-                else:
-                    print("(silence)")
+        finally:
+            try:
+                if stream_lb is not None:
+                    if stream_lb.is_active():
+                        stream_lb.stop_stream()
+                    stream_lb.close()
+            except Exception:
+                pass
+            try:
+                if stream_mic is not None:
+                    if stream_mic.is_active():
+                        stream_mic.stop_stream()
+                    stream_mic.close()
+            except Exception:
+                pass
+            try:
+                p.terminate()
+            except Exception:
+                pass
 
-        stream_lb.stop_stream()
-        stream_lb.close()
-        if stream_mic:
-            stream_mic.stop_stream()
-            stream_mic.close()
-
-    except Exception as e:
-        print(f"\n[ERROR] {e}")
-        import traceback
-        traceback.print_exc()
-
-    finally:
-        p.terminate()
-        print(f"\n[DONE] Transcription saved to: {OUTPUT_FILE}")
+    print(f"\n[DONE] Transcription saved to: {OUTPUT_FILE}")
 
 
 def main():

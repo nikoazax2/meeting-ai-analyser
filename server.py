@@ -10,14 +10,11 @@ import threading
 import time
 
 import subprocess
-import sys
 
 import psutil
 from flask import Flask, Response, request, send_from_directory
 
-from paths import TRANSCRIPTION_FILE, ANALYSIS_FILE, BUNDLE_DIR, APP_DIR
-
-TRANSCRIBE_SCRIPT = os.path.join(APP_DIR, "live_transcribe.py")
+from paths import TRANSCRIPTION_FILE, ANALYSIS_FILE, BUNDLE_DIR
 
 app = Flask(__name__, static_folder=BUNDLE_DIR)
 
@@ -119,26 +116,16 @@ def get_devices():
 
 @app.route("/api/restart", methods=["POST"])
 def restart_transcription():
-    """Restart live_transcribe.py with a new mic device"""
+    """Signal the transcription thread to reopen its audio streams,
+    optionally switching to a different microphone."""
     data = request.get_json() or {}
     mic_id = data.get("micDevice")
-    # Kill current live_transcribe process
-    my_pid = os.getpid()
-    killed = False
-    for proc in psutil.process_iter(["pid", "cmdline"]):
-        try:
-            cmd_str = " ".join(proc.info["cmdline"] or [])
-            if "live_transcribe" in cmd_str and proc.info["pid"] != my_pid:
-                proc.kill()
-                killed = True
-        except Exception:
-            pass
-    # Relaunch with new mic
-    cmd = [sys.executable, TRANSCRIBE_SCRIPT]
-    if mic_id is not None:
-        cmd += ["--mic-device", str(mic_id)]
-    subprocess.Popen(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
-    return {"status": "restarted", "micDevice": mic_id, "killed": killed}
+    try:
+        import live_transcribe
+        live_transcribe.request_restart(mic_id)
+        return {"status": "restarted", "micDevice": mic_id}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}, 500
 
 
 @app.route("/api/reset", methods=["POST"])

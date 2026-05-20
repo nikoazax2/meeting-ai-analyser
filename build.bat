@@ -22,7 +22,7 @@ if exist build rmdir /s /q build
 
 echo.
 echo [3/3] Build PyInstaller (cela peut prendre quelques minutes)...
-pyinstaller build.spec --noconfirm
+python -m PyInstaller build.spec --noconfirm
 if errorlevel 1 (
     echo ERREUR: build echoue
     pause
