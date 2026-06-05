@@ -9,7 +9,10 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 
+import settings
 from paths import TRANSCRIPTION_FILE, ANALYSIS_FILE, LOG_FILE, TEMP_PROMPT
 
 
@@ -142,6 +145,7 @@ def reset_content():
     """Reset last_content so next analysis isn't skipped after a reset"""
     with _last_content_lock:
         _last_content_ref["value"] = ""
+    reset_api_history()
 
 PROMPT = """You are a real-time meeting assistant. Here is the live transcription of an ongoing meeting.
 
@@ -157,6 +161,127 @@ Be concise and structured. Markdown format.
 TRANSCRIPTION:
 {transcription}
 """
+
+
+# ===== Bring-your-own Anthropic API key mode =====
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_VERSION = "2023-06-01"
+_API_MAX_HISTORY_TURNS = 6  # keep last N (user, assistant) pairs for cross-analysis continuity
+
+# Stable system prompt (cached) — instructions live here so the transcript user turn stays small.
+SYSTEM_PROMPT_API = """You are a real-time meeting assistant analysing the live transcription of an ongoing meeting.
+
+For each update, produce a concise, structured Markdown response:
+1. Summarize the topics discussed
+2. List decisions made
+3. Identify open questions
+4. Suggest technical solutions if relevant
+5. List action items (who does what)
+
+Respond only with the structured summary - no preamble, no meta-commentary about your process."""
+
+_api_history = []
+_api_history_lock = threading.Lock()
+
+
+def reset_api_history():
+    """Clear the rolling API conversation history (called on reset)."""
+    with _api_history_lock:
+        _api_history.clear()
+
+
+def analyze_with_api(text):
+    """Analyse the transcript by calling the Anthropic Messages API directly with the
+    user's own API key (no Claude Code CLI / subscription needed). Uses stdlib urllib so
+    packaging stays dependency-free. Keeps a rolling in-memory history for continuity and
+    caches the stable system prompt + latest turn via prompt caching."""
+    cfg = settings.load()
+    api_key = (cfg.get("api_key") or "").strip()
+    model = cfg.get("api_model") or "claude-opus-4-8"
+    if not api_key:
+        log("API mode: no API key configured")
+        return None
+
+    with _api_history_lock:
+        history = [dict(m) for m in _api_history]
+
+    # Prior turns are plain strings; only the current (last) user turn carries a cache breakpoint.
+    messages = list(history)
+    messages.append({
+        "role": "user",
+        "content": [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}],
+    })
+
+    body = {
+        "model": model,
+        "max_tokens": 2048,
+        "system": [{"type": "text", "text": SYSTEM_PROMPT_API, "cache_control": {"type": "ephemeral"}}],
+        "messages": messages,
+    }
+
+    req = urllib.request.Request(
+        ANTHROPIC_API_URL,
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+
+    log(f"API mode: calling {model} (transcript {len(text)} chars, history {len(history)} msgs)")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")[:500]
+        log(f"API mode HTTPError {e.code}: {detail}")
+        return None
+    except urllib.error.URLError as e:
+        log(f"API mode URLError: {e.reason}")
+        return None
+    except Exception as e:
+        log(f"API mode ERROR: {type(e).__name__}: {e}")
+        return None
+
+    summary = "".join(
+        b.get("text", "") for b in payload.get("content", []) if b.get("type") == "text"
+    ).strip()
+
+    usage = payload.get("usage", {}) or {}
+    log(
+        "API mode ok: in={} cache_read={} out={}".format(
+            usage.get("input_tokens"),
+            usage.get("cache_read_input_tokens"),
+            usage.get("output_tokens"),
+        )
+    )
+
+    if not summary:
+        log("API mode: empty response")
+        return None
+
+    # Update rolling history (store plain strings; trim to the last N turns).
+    with _api_history_lock:
+        _api_history.append({"role": "user", "content": text})
+        _api_history.append({"role": "assistant", "content": summary})
+        max_msgs = _API_MAX_HISTORY_TURNS * 2
+        if len(_api_history) > max_msgs:
+            del _api_history[: len(_api_history) - max_msgs]
+
+    return summary
+
+
+def run_analysis(text):
+    """Dispatch to API mode (bring-your-own key) or the Claude Code CLI based on settings."""
+    try:
+        mode = settings.get("analysis_mode")
+    except Exception:
+        mode = "cli"
+    if mode == "api":
+        return analyze_with_api(text)
+    return analyze_with_claude(text)
 
 
 def read_transcription():
@@ -278,7 +403,7 @@ def _run(stop_event=None, interval=60):
 
             with _status_lock:
                 analyst_status["state"] = "analyzing"
-            analysis = analyze_with_claude(content)
+            analysis = run_analysis(content)
             with _status_lock:
                 analyst_status["state"] = "paused" if analyst_status["paused"] else "idle"
                 analyst_status["last_run"] = time.time()

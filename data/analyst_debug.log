@@ -92,3 +92,7 @@
 [20:13:35] Calling C:\Users\nicolas.sage_neoteem/AppData/Roaming/npm/claude.cmd --print (prompt length: 3174)
 [20:13:54] Return code: 0
 [20:13:54] Stdout length: 1958
+[16:45:12] API mode: calling claude-sonnet-4-6 (transcript 23 chars, history 0 msgs)
+[16:45:12] API mode ok: in=10 cache_read=0 out=5
+[16:45:12] API mode: calling claude-sonnet-4-6 (transcript 36 chars, history 2 msgs)
+[16:45:12] API mode ok: in=10 cache_read=0 out=5

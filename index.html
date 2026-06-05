@@ -1600,6 +1600,51 @@
       </div>
     </div>
 
+    <!-- Settings modal (AI analysis mode: Claude Code CLI vs bring-your-own API key) -->
+    <div class="activate-modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettingsModal()">
+      <div class="activate-modal" style="text-align:left;max-width:460px">
+        <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
+        <h3 style="text-align:center">AI Analysis Settings</h3>
+        <p style="font-size:13px;color:#94a3b8;margin:0 0 14px">
+          Choose how transcripts are analysed. Your API key is stored locally only and is sent
+          solely to api.anthropic.com.
+        </p>
+
+        <label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;cursor:pointer">
+          <input type="radio" name="analysisMode" value="cli" id="modeCli" style="margin-top:3px" />
+          <span><strong>Claude Code CLI</strong><br />
+            <span style="font-size:12px;color:#94a3b8">Uses your Claude Pro/Team/Enterprise subscription. No per-token fees.</span></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;cursor:pointer">
+          <input type="radio" name="analysisMode" value="api" id="modeApi" style="margin-top:3px" />
+          <span><strong>Anthropic API key (bring your own)</strong><br />
+            <span style="font-size:12px;color:#94a3b8">No CLI or subscription needed. Pay-as-you-go on your own Anthropic API key.</span></span>
+        </label>
+
+        <div id="apiSettingsBlock" style="display:none;border-top:1px solid #334155;padding-top:12px">
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">API key</div>
+          <div class="license-input-group">
+            <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+          </div>
+          <div id="apiKeyStatus" style="font-size:12px;color:#94a3b8;margin:4px 0 12px"></div>
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">Model</div>
+          <select id="apiModelSelect" style="width:100%;padding:8px;border-radius:6px;background:#0f172a;color:#e2e8f0;border:1px solid #334155">
+            <option value="claude-opus-4-8">Claude Opus 4.8 (most capable)</option>
+            <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (fast, cheaper)</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5 (fastest, cheapest)</option>
+          </select>
+          <p style="font-size:11px;color:#64748b;margin:8px 0 0">
+            Get a key at console.anthropic.com. Real-time analysis runs every 60s, so Sonnet or Haiku keeps cost down.
+          </p>
+        </div>
+
+        <div class="popup-msg" id="settingsMsg"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+          <button id="settingsSaveBtn" onclick="saveSettings()">Save</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Welcome popup -->
     <div class="welcome-backdrop" id="welcomeBackdrop">
       <div class="welcome-modal">
@@ -1724,6 +1769,7 @@
           <option value="ru">🌐 Русский</option>
           <option value="ar">🌐 العربية</option>
         </select>
+        <button id="settingsBtn" onclick="openSettingsModal()" title="AI analysis settings">&#9881;&#65039;</button>
         <button id="resetBtn" onclick="resetAll()">Reset</button>
         <span id="segmentCount" class="segment-count">0 segments</span>
         <span id="lastUpdate">--:--:--</span>
@@ -2404,6 +2450,76 @@
       licenseKeyInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") activateLicense();
       });
+
+      // Settings modal (AI analysis mode)
+      const settingsModal = document.getElementById("settingsModal");
+
+      function refreshApiBlock() {
+        const apiOn = document.getElementById("modeApi").checked;
+        document.getElementById("apiSettingsBlock").style.display = apiOn ? "block" : "none";
+      }
+      document.getElementById("modeCli").addEventListener("change", refreshApiBlock);
+      document.getElementById("modeApi").addEventListener("change", refreshApiBlock);
+
+      async function openSettingsModal() {
+        document.getElementById("settingsMsg").textContent = "";
+        document.getElementById("apiKeyInput").value = "";
+        try {
+          const s = await fetch("/api/settings").then((r) => r.json());
+          document.getElementById("modeApi").checked = s.analysis_mode === "api";
+          document.getElementById("modeCli").checked = s.analysis_mode !== "api";
+          document.getElementById("apiModelSelect").value = s.api_model || "claude-opus-4-8";
+          const status = document.getElementById("apiKeyStatus");
+          status.textContent = s.api_key_set
+            ? "A key is saved (" + (s.api_key_preview || "set") + "). Leave blank to keep it."
+            : "No key saved yet.";
+          refreshApiBlock();
+        } catch (e) {
+          document.getElementById("settingsMsg").textContent = "Could not load settings.";
+        }
+        settingsModal.classList.add("visible");
+      }
+
+      function closeSettingsModal() {
+        settingsModal.classList.remove("visible");
+      }
+
+      async function saveSettings() {
+        const mode = document.getElementById("modeApi").checked ? "api" : "cli";
+        const key = document.getElementById("apiKeyInput").value.trim();
+        const model = document.getElementById("apiModelSelect").value;
+        const msg = document.getElementById("settingsMsg");
+        const btn = document.getElementById("settingsSaveBtn");
+        if (mode === "api" && !key) {
+          // Allow saving without a new key only if one is already stored.
+          const s = await fetch("/api/settings").then((r) => r.json());
+          if (!s.api_key_set) {
+            msg.className = "popup-msg error";
+            msg.textContent = "Enter an Anthropic API key to use API mode.";
+            return;
+          }
+        }
+        btn.disabled = true;
+        msg.className = "popup-msg";
+        msg.textContent = "Saving...";
+        try {
+          const body = { analysis_mode: mode, api_model: model };
+          if (key) body.api_key = key;
+          const res = await fetch("/api/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }).then((r) => r.json());
+          msg.className = "popup-msg success";
+          msg.textContent = "Saved. Mode: " + (res.analysis_mode === "api" ? "API key (" + res.api_model + ")" : "Claude Code CLI") + ".";
+          setTimeout(closeSettingsModal, 900);
+        } catch (e) {
+          msg.className = "popup-msg error";
+          msg.textContent = "Save failed.";
+        } finally {
+          btn.disabled = false;
+        }
+      }
 
       // Activation modal
       const activateModal = document.getElementById("activateModal");

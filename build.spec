@@ -50,6 +50,7 @@ a = Analysis(
         'psutil',
         'paths',
         'version',
+        'settings',
         'license',
         'hwid',
         'updater',

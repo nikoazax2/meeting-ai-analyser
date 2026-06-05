@@ -395,6 +395,49 @@ def claude_check():
     return {"found": False, "path": None}
 
 
+@app.route("/api/settings", methods=["GET"])
+def get_settings():
+    """Return analysis settings. The API key is never returned in clear - only a masked preview."""
+    import settings as settings_mod
+    cfg = settings_mod.load()
+    key = (cfg.get("api_key") or "").strip()
+    preview = ""
+    if key:
+        preview = (key[:7] + "..." + key[-4:]) if len(key) > 14 else "set"
+    return {
+        "analysis_mode": cfg.get("analysis_mode", "cli"),
+        "api_model": cfg.get("api_model", "claude-opus-4-8"),
+        "api_key_set": bool(key),
+        "api_key_preview": preview,
+        "models": list(settings_mod.ALLOWED_MODELS),
+    }
+
+
+@app.route("/api/settings", methods=["POST"])
+def update_settings():
+    """Update analysis settings. Only known keys are persisted; the API key is write-only."""
+    import settings as settings_mod
+    data = request.get_json() or {}
+    updates = {}
+    if data.get("analysis_mode") in ("cli", "api"):
+        updates["analysis_mode"] = data["analysis_mode"]
+    if data.get("api_model") in settings_mod.ALLOWED_MODELS:
+        updates["api_model"] = data["api_model"]
+    if data.get("clear_api_key"):
+        updates["api_key"] = ""
+    else:
+        key = (data.get("api_key") or "").strip()
+        if key:
+            updates["api_key"] = key
+    cfg = settings_mod.save(updates)
+    return {
+        "status": "ok",
+        "analysis_mode": cfg.get("analysis_mode"),
+        "api_model": cfg.get("api_model"),
+        "api_key_set": bool((cfg.get("api_key") or "").strip()),
+    }
+
+
 @app.route("/api/heartbeat")
 def heartbeat():
     global _last_heartbeat

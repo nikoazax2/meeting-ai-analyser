@@ -21,6 +21,12 @@ transcription_live.txt
 transcription_latest.txt
 analyse_reunion.md
 
+# Donnees runtime locales (NE JAMAIS committer : contient la cle API utilisateur)
+data/settings.json
+data/analyst_debug.log
+data/trial.json
+data/license.json
+
 # Environnement
 .env
 .venv/
