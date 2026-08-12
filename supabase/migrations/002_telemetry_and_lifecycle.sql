@@ -16,7 +16,11 @@ create table if not exists public.meeting_ai_events (
   event         text not null,
   props         jsonb not null default '{}'::jsonb,
   app_version   text,
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+  -- Plain column rather than an index on created_at::date: casting timestamptz
+  -- to date is STABLE, not IMMUTABLE, so Postgres rejects it in an index.
+  -- A volatile DEFAULT is fine, which gets us the same daily-dedup key.
+  day           date not null default (now() at time zone 'utc')::date
 );
 
 create index if not exists meeting_ai_events_event_time_idx
@@ -29,7 +33,7 @@ create index if not exists meeting_ai_events_email_idx
 
 -- One row per (hwid, event) per day keeps volume bounded even if a client loops.
 create unique index if not exists meeting_ai_events_daily_uidx
-  on public.meeting_ai_events (hwid, event, (created_at::date));
+  on public.meeting_ai_events (hwid, event, day);
 
 alter table public.meeting_ai_events enable row level security;
 
