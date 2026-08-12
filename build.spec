@@ -62,12 +62,50 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'pytest'],
+    # None of these are imported anywhere in this app. They get pulled in
+    # transitively from the dev environment and cost ~400 MB uncompressed:
+    # torch alone is 181 MB, and faster-whisper runs on ctranslate2, not torch.
+    # Keep av, onnxruntime, tokenizers and ctranslate2 - faster-whisper needs
+    # them for decoding, VAD and tokenisation.
+    excludes=[
+        'tkinter', 'matplotlib', 'pytest',
+        'torch', 'torchvision', 'torchaudio',
+        'transformers', 'datasets', 'accelerate',
+        'spacy', 'thinc', 'blis', 'cymem', 'preshed', 'murmurhash',
+        'srsly', 'catalogue', 'wasabi', 'weasel', 'confection',
+        'imageio', 'imageio_ffmpeg',
+        'botocore', 'boto3', 's3transfer',
+        'pandas', 'sympy', 'networkx',
+        'IPython', 'notebook', 'jupyter',
+        'pygame',
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Drop Intel MKL. PyInstaller pulls ~400 MB of it in from Library/bin, but numpy
+# and scipy here are built against OpenBLAS - `numpy.show_config()` reports
+# openblas64 - so none of it is ever loaded. Leaving it in tripled the installer
+# (170 MB -> 493 MB), which is a real cost on a product whose main problem is
+# getting people past the download in the first place.
+_EXCLUDED_BINARY_PREFIXES = ('mkl_',)
+
+_kept, _dropped_bytes = [], 0
+for _entry in a.binaries:
+    _name = os.path.basename(_entry[0]).lower()
+    if _name.startswith(_EXCLUDED_BINARY_PREFIXES):
+        try:
+            _dropped_bytes += os.path.getsize(_entry[1])
+        except OSError:
+            pass
+        continue
+    _kept.append(_entry)
+
+print(f"[spec] excluded {len(a.binaries) - len(_kept)} binaries "
+      f"({_dropped_bytes / 1048576:.0f} MB) matching {_EXCLUDED_BINARY_PREFIXES}")
+a.binaries = _kept
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
