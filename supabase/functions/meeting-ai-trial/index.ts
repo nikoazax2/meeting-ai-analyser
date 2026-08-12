@@ -37,21 +37,29 @@ Deno.serve(async (req) => {
     if (action === "validate") return await validateTrial(body);
     return json({ error: "Unknown action" }, 400);
   } catch (e) {
-    return json({ error: String(e?.message ?? e) }, 500);
+    return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
 });
 
 async function startTrial(body: any, req: Request) {
-  const email = String(body.email ?? "").trim().toLowerCase();
+  const rawEmail = String(body.email ?? "").trim().toLowerCase();
   const hwid = String(body.hwid ?? "").trim();
+  const source = String(body.source ?? "").trim().slice(0, 40) || null;
 
-  if (!email || !hwid) return json({ error: "email and hwid required" }, 400);
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    return json({ error: "invalid email" }, 400);
-  }
+  if (!hwid) return json({ error: "hwid required" }, 400);
   if (hwid.length < 16 || hwid.length > 128) {
     return json({ error: "invalid hwid" }, 400);
   }
+  if (rawEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(rawEmail)) {
+    return json({ error: "invalid email" }, 400);
+  }
+
+  // Email is optional. Demanding one before the user has seen the product work
+  // is a wall at the very first screen, and it contradicts everything the
+  // landing page promises about nothing leaving their machine. Anti-abuse rests
+  // on the hwid, which is unique on its own; the synthetic address just
+  // satisfies the not-null column and is filtered out of all mailings.
+  const email = rawEmail || `anon-${hwid.slice(0, 24)}@trial.invalid`;
 
   // Existing row by email
   const { data: byEmail } = await supabase
@@ -96,11 +104,22 @@ async function startTrial(body: any, req: Request) {
   }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-  const { data: created, error } = await supabase
+
+  // `source` only exists once migration 002 has run. Never let a missing
+  // column stop a trial from being created - that would brick first launch.
+  let { data: created, error } = await supabase
     .from("meeting_ai_trials")
-    .insert({ email, hwid, last_seen_ip: ip })
+    .insert({ email, hwid, last_seen_ip: ip, source })
     .select()
     .single();
+
+  if (error) {
+    ({ data: created, error } = await supabase
+      .from("meeting_ai_trials")
+      .insert({ email, hwid, last_seen_ip: ip })
+      .select()
+      .single());
+  }
 
   if (error || !created) {
     return json({ error: error?.message ?? "insert failed" }, 500);

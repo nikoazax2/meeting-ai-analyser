@@ -14,6 +14,7 @@ import subprocess
 import psutil
 from flask import Flask, Response, request, send_from_directory
 
+import telemetry
 from paths import TRANSCRIPTION_FILE, ANALYSIS_FILE, BUNDLE_DIR
 
 app = Flask(__name__, static_folder=BUNDLE_DIR)
@@ -187,7 +188,14 @@ def analyst_info():
         now = time.time()
         remaining = max(0, s["next_run"] - now) if s["next_run"] > 0 else 0
         progress = 1 - (remaining / s["interval"]) if s["interval"] > 0 and not s["paused"] else 0
-        return {"state": s["state"], "remaining": round(remaining), "progress": round(progress, 3), "interval": s["interval"], "paused": s["paused"], "conversation_id": s.get("conversation_id", "")}
+        return {
+            "state": s["state"], "remaining": round(remaining), "progress": round(progress, 3),
+            "interval": s["interval"], "paused": s["paused"],
+            "conversation_id": s.get("conversation_id", ""),
+            "error_code": s.get("error_code", ""),
+            "error_message": s.get("error_message", ""),
+            "error_action": s.get("error_action", ""),
+        }
     except Exception:
         return {"state": "unknown", "remaining": 0, "progress": 0, "interval": 60, "paused": False}
 
@@ -277,6 +285,7 @@ def activate_license():
         app_status["license_info"] = access.get("license_info")
         app_status["trial_days_left"] = access.get("days_left", 0)
         _start_analyst_if_needed()
+        telemetry.track("license_activated", once=False)
     return result
 
 
@@ -285,14 +294,13 @@ def start_trial_route():
     import license as lic_mod
     data = request.get_json() or {}
     email = (data.get("email") or "").strip()
-    if not email:
-        return {"success": False, "message": "Email required"}, 400
-    result = lic_mod.start_trial(email)
+    result = lic_mod.start_trial(email, source=(data.get("source") or "").strip())
     if result.get("success"):
         access = lic_mod.check_access()
         app_status["access_mode"] = access["mode"]
         app_status["trial_days_left"] = access.get("days_left", 0)
         _start_analyst_if_needed()
+        telemetry.track("trial_started", once=False)
     return result
 
 
@@ -410,6 +418,7 @@ def get_settings():
         "api_key_set": bool(key),
         "api_key_preview": preview,
         "models": list(settings_mod.ALLOWED_MODELS),
+        "telemetry": cfg.get("telemetry", True),
     }
 
 
@@ -429,13 +438,30 @@ def update_settings():
         key = (data.get("api_key") or "").strip()
         if key:
             updates["api_key"] = key
+    if isinstance(data.get("telemetry"), bool):
+        updates["telemetry"] = data["telemetry"]
     cfg = settings_mod.save(updates)
+
+    if (cfg.get("api_key") or "").strip() and cfg.get("analysis_mode") == "api":
+        telemetry.track("claude_configured", {"mode": "api"})
+
     return {
         "status": "ok",
         "analysis_mode": cfg.get("analysis_mode"),
         "api_model": cfg.get("api_model"),
         "api_key_set": bool((cfg.get("api_key") or "").strip()),
+        "telemetry": cfg.get("telemetry", True),
     }
+
+
+@app.route("/api/track", methods=["POST"])
+def track_event():
+    """Let the UI report funnel events (buy clicked, expiry wall seen, ...)."""
+    data = request.get_json() or {}
+    event = (data.get("event") or "").strip()
+    if event:
+        telemetry.track(event, data.get("props") or {}, once=bool(data.get("once", True)))
+    return {"ok": True}
 
 
 @app.route("/api/heartbeat")

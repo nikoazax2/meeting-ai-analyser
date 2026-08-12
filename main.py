@@ -82,6 +82,11 @@ def main():
     app_status["license_info"] = access.get("license_info")
     print(f"[MAIN] Access: {access['mode']}" + (f" ({access.get('days_left', 0)} days left)" if access['mode'] == 'trial' else ""))
 
+    import telemetry
+    telemetry.track("app_launched", {"mode": access["mode"]})
+    if access["mode"] == "expired":
+        telemetry.track("trial_expired_seen")
+
     # 1. Web server FIRST (starts fast)
     import server
     server.app_status = app_status

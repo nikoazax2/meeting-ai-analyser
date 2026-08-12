@@ -11,7 +11,7 @@ import os
 import time
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from paths import TRIAL_FILE, LICENSE_FILE
 
@@ -175,17 +175,31 @@ def _mask_key(key):
 
 # ---------------- Trial (Supabase) ----------------
 
-def start_trial(email):
-    """Start a server-side trial. Called when no local token exists."""
+def start_trial(email, source=""):
+    """Start a server-side trial. Called when no local token exists.
+
+    `source` is the optional self-reported acquisition channel, which is the
+    only reliable way to know which channel produces buyers: nothing survives
+    the trip from the website through an installer to a fresh install.
+    """
     email = (email or "").strip().lower()
-    if not email or "@" not in email:
+    if email and "@" not in email:
         return {"success": False, "message": "Invalid email"}
 
     from hwid import get_hwid
     try:
-        result = _trial_call("start", {"email": email, "hwid": get_hwid()})
-    except Exception as e:
-        return {"success": False, "message": f"Connection error: {e}"}
+        result = _trial_call("start", {
+            "email": email,
+            "hwid": get_hwid(),
+            "source": (source or "")[:40],
+        })
+    except Exception:
+        # The whole selling point is that this works locally. Refusing to start
+        # because our own server is unreachable - corporate proxy, VPN, captive
+        # wifi, our outage - would brick the app for a legitimate user at the
+        # very first screen. Grant the trial locally instead; the hwid check
+        # still applies to everyone who is online.
+        return _start_local_trial(email)
 
     status = result.get("status")
     if status == "active":
@@ -207,6 +221,22 @@ def start_trial(email):
     return {"success": False, "message": result.get("error") or "Unable to start trial"}
 
 
+LOCAL_TOKEN_PREFIX = "local-"
+
+
+def _start_local_trial(email):
+    """Offline fallback: a self-contained 7-day trial with no server round-trip."""
+    import uuid
+    expires = datetime.now(timezone.utc) + timedelta(days=7)
+    _save_trial({
+        "token": LOCAL_TOKEN_PREFIX + uuid.uuid4().hex,
+        "email": email,
+        "expires_at": expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "last_validated": _now_iso(),
+    })
+    return {"success": True, "days_left": 7, "offline": True}
+
+
 def _check_trial():
     trial = _load_trial()
     if not trial or not trial.get("token"):
@@ -214,6 +244,11 @@ def _check_trial():
 
     expires_at = trial.get("expires_at", "")
     days_left = _days_until(expires_at)
+
+    # Local trials are self-contained: validating them server-side would return
+    # not_found and lock out the user we granted the trial to in the first place.
+    if trial["token"].startswith(LOCAL_TOKEN_PREFIX):
+        return {"active": days_left > 0, "days_left": days_left}
 
     last = trial.get("last_validated", "")
     try:

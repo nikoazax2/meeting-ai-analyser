@@ -14,6 +14,7 @@ _DEFAULTS = {
     "analysis_mode": "cli",            # "cli" (Claude Code CLI) | "api" (bring-your-own Anthropic API key)
     "api_key": "",                     # Anthropic API key, local only
     "api_model": "claude-opus-4-8",    # model used in API mode
+    "telemetry": True,                 # anonymous usage events, opt-out (never audio or transcripts)
 }
 
 # Allowlist of models the UI exposes (kept in sync with the dropdown in index.html)

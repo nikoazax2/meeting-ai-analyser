@@ -6,13 +6,13 @@ import glob
 import json
 import os
 import subprocess
-import sys
 import threading
 import time
 import urllib.error
 import urllib.request
 
 import settings
+import telemetry
 from paths import TRANSCRIPTION_FILE, ANALYSIS_FILE, LOG_FILE, TEMP_PROMPT
 
 
@@ -22,8 +22,69 @@ def log(msg):
 
 
 # Timing state (exposed for server.py)
-analyst_status = {"state": "idle", "last_run": 0, "next_run": 0, "interval": 60, "paused": False, "conversation_id": ""}
+analyst_status = {
+    "state": "idle", "last_run": 0, "next_run": 0, "interval": 60,
+    "paused": False, "conversation_id": "",
+    # Surfaced in the UI so a broken setup is visible instead of silent.
+    "error_code": "", "error_message": "", "error_action": "",
+}
 _status_lock = threading.Lock()
+
+# A setup failure the user can act on. Silence here is what kills trials: the
+# analysis panel just stays empty and the user assumes the product is broken.
+SETUP_ERRORS = {
+    "claude_cli_not_found": (
+        "Claude Code CLI not found on this computer.",
+        "Open Settings and paste an Anthropic API key instead - it needs no CLI "
+        "and no subscription. Or install Claude Code, then restart the app.",
+    ),
+    "claude_cli_not_authenticated": (
+        "Claude Code is installed but not signed in.",
+        "Open a terminal, run `claude`, sign in once, then restart the app. "
+        "Or switch to API-key mode in Settings.",
+    ),
+    "claude_cli_failed": (
+        "Claude Code returned an error.",
+        "Run `claude` once in a terminal to check it works, or switch to "
+        "API-key mode in Settings.",
+    ),
+    "api_key_missing": (
+        "No Anthropic API key configured.",
+        "Open Settings, paste your API key from console.anthropic.com, and save.",
+    ),
+    "api_key_rejected": (
+        "Anthropic rejected the API key.",
+        "Check the key in Settings, and confirm the account has credit at "
+        "console.anthropic.com/settings/billing.",
+    ),
+    "api_unreachable": (
+        "Could not reach the Anthropic API.",
+        "Check your internet connection, VPN or corporate proxy, then retry.",
+    ),
+    "timeout": (
+        "The analysis took longer than 120 seconds and was cancelled.",
+        "This usually resolves on the next run. If it persists, switch to a "
+        "faster model in Settings.",
+    ),
+}
+
+
+def _set_error(code):
+    """Record an actionable setup error and report it once per session."""
+    message, action = SETUP_ERRORS.get(code, ("Analysis failed.", "Retry in a moment."))
+    with _status_lock:
+        analyst_status["error_code"] = code
+        analyst_status["error_message"] = message
+        analyst_status["error_action"] = action
+    log(f"SETUP ERROR [{code}]: {message}")
+    telemetry.track("analysis_failed", {"reason": code})
+
+
+def _clear_error():
+    with _status_lock:
+        analyst_status["error_code"] = ""
+        analyst_status["error_message"] = ""
+        analyst_status["error_action"] = ""
 
 # Events for manual trigger and pause control
 _trigger_event = threading.Event()
@@ -199,7 +260,7 @@ def analyze_with_api(text):
     api_key = (cfg.get("api_key") or "").strip()
     model = cfg.get("api_model") or "claude-opus-4-8"
     if not api_key:
-        log("API mode: no API key configured")
+        _set_error("api_key_missing")
         return None
 
     with _api_history_lock:
@@ -237,9 +298,11 @@ def analyze_with_api(text):
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
         log(f"API mode HTTPError {e.code}: {detail}")
+        _set_error("api_key_rejected" if e.code in (401, 403) else "api_unreachable")
         return None
     except urllib.error.URLError as e:
         log(f"API mode URLError: {e.reason}")
+        _set_error("api_unreachable")
         return None
     except Exception as e:
         log(f"API mode ERROR: {type(e).__name__}: {e}")
@@ -333,14 +396,22 @@ def analyze_with_claude(text):
             log(f"Stderr: {result.stderr[:500]}")
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
+
+        # Non-zero exit is almost always an unauthenticated or rate-limited CLI.
+        stderr = (result.stderr or "").lower()
+        if any(w in stderr for w in ("login", "auth", "unauthorized", "api key", "credit")):
+            _set_error("claude_cli_not_authenticated")
         else:
-            log(f"FAIL: no output or bad return code")
-            return None
+            _set_error("claude_cli_failed")
+        log(f"FAIL: rc={result.returncode}, stdout={len(result.stdout)} chars")
+        return None
     except FileNotFoundError:
-        log(f"ERROR: claude not found at {claude_cmd}")
-        sys.exit(1)
+        # Never sys.exit() here: this runs in a daemon thread, so exiting kills
+        # analysis silently and the user just sees an empty panel forever.
+        _set_error("claude_cli_not_found")
+        return None
     except subprocess.TimeoutExpired:
-        log("ERROR: claude timed out (120s)")
+        _set_error("timeout")
         return None
     except Exception as e:
         log(f"ERROR: {type(e).__name__}: {e}")
@@ -409,6 +480,10 @@ def _run(stop_event=None, interval=60):
                 analyst_status["last_run"] = time.time()
 
             if analysis:
+                # Activation: the first real summary is the moment the product
+                # proves itself. Trials that never reach it never convert.
+                _clear_error()
+                telemetry.track("analysis_success")
                 with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
                     f.write(f"# Meeting Analysis - {time.strftime('%Y-%m-%d %H:%M')}\n\n")
                     f.write(analysis)

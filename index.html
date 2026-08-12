@@ -1552,11 +1552,36 @@
     <div class="expired-overlay" id="trialStartOverlay" style="display:none">
       <div class="expired-card">
         <h2>Start your 7-day free trial</h2>
-        <p>Enter your email to activate Meeting AI Analyser.<br/>No credit card required.</p>
-        <div class="license-input-group">
-          <input type="email" id="trialEmailInput" placeholder="your@email.com" />
-          <button id="trialStartBtn" onclick="startTrial()">Start trial</button>
-        </div>
+        <p>No account, no credit card.<br/>Everything runs on this computer.</p>
+        <button
+          id="trialStartBtn"
+          onclick="startTrial()"
+          style="width:100%;margin-top:6px;background:#d97757;color:#fff;border:0;border-radius:8px;padding:14px;font-size:15px;font-weight:600;cursor:pointer"
+        >
+          Start my 7-day trial
+        </button>
+        <input
+          type="email"
+          id="trialEmailInput"
+          placeholder="Email (optional)"
+          style="margin-top:12px;width:100%;padding:10px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#ccc;font-size:13px;box-sizing:border-box"
+        />
+        <p style="margin:6px 0 0;font-size:11px;color:#777;line-height:1.5">
+          Only used to send you setup help and a reminder before the trial ends.
+          Leave it blank and the trial starts anyway.
+        </p>
+        <select id="trialSource" style="margin-top:12px;width:100%;padding:10px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#ccc;font-size:13px">
+          <option value="">How did you hear about us? (optional)</option>
+          <option value="google">Google or another search engine</option>
+          <option value="reddit">Reddit</option>
+          <option value="producthunt">Product Hunt</option>
+          <option value="hackernews">Hacker News</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="youtube">YouTube</option>
+          <option value="ai_directory">An AI tools directory</option>
+          <option value="word_of_mouth">A friend or colleague</option>
+          <option value="other">Somewhere else</option>
+        </select>
         <div class="license-message" id="trialMessage"></div>
         <p style="margin-top:18px;font-size:12px;color:#888">Already have a license? <a href="#" onclick="document.getElementById('trialStartOverlay').style.display='none';openActivateModal();return false" style="color:#d97757">Activate it</a></p>
       </div>
@@ -1823,6 +1848,18 @@
           <div class="analyst-progress-bar" id="analystBar"></div>
         </div>
         <div class="panel-content" id="analysisPanel">
+          <!-- Setup errors used to be invisible: the panel just stayed empty and
+               the user assumed the product was broken. Now they are actionable. -->
+          <div id="setupError" style="display:none;margin:16px;padding:16px 18px;border:1px solid #7a3b2e;border-left:3px solid #d97757;border-radius:8px;background:#2a1a16">
+            <div style="font-weight:600;color:#f0c8bb;margin-bottom:6px" id="setupErrorTitle"></div>
+            <div style="font-size:13px;line-height:1.6;color:#c9b3ac" id="setupErrorAction"></div>
+            <button
+              onclick="openSettingsModal()"
+              style="margin-top:14px;background:#d97757;color:#fff;border:0;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer"
+            >
+              Open Settings
+            </button>
+          </div>
           <div class="empty-state" id="analysisEmpty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
@@ -2182,6 +2219,19 @@
           analystPaused = data.paused;
           updateAnalystButtons();
 
+          const errBox = document.getElementById("setupError");
+          if (errBox) {
+            if (data.error_message) {
+              document.getElementById("setupErrorTitle").textContent = data.error_message;
+              document.getElementById("setupErrorAction").textContent = data.error_action || "";
+              errBox.style.display = "";
+              const empty = document.getElementById("analysisEmpty");
+              if (empty) empty.style.display = "none";
+            } else {
+              errBox.style.display = "none";
+            }
+          }
+
           if (data.state === "analyzing") {
             analystBar.style.width = "100%";
             analystBar.classList.add("analyzing");
@@ -2209,6 +2259,21 @@
       }
 
       setInterval(pollAnalyst, 1000);
+
+      // Funnel events from inside the app. Delegated so every current and future
+      // checkout link is covered without touching each one.
+      function trackEvent(event, props, once) {
+        fetch("/api/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event: event, props: props || {}, once: once !== false }),
+        }).catch(() => {});
+      }
+
+      document.addEventListener("click", (e) => {
+        const link = e.target.closest && e.target.closest('a[href*="lemonsqueezy.com"]');
+        if (link) trackEvent("buy_clicked", {}, false);
+      });
 
       // Language selector
       const langSelect = document.getElementById("langSelect");
@@ -2380,8 +2445,9 @@
         const btn = document.getElementById("trialStartBtn");
         const msg = document.getElementById("trialMessage");
         const email = emailInput.value.trim();
-        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-          msg.textContent = "Please enter a valid email.";
+        // Email is optional: only reject one that was typed and is malformed.
+        if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          msg.textContent = "That email doesn't look right. Fix it, or clear it to skip.";
           msg.className = "license-message error";
           return;
         }
@@ -2389,10 +2455,11 @@
         msg.textContent = "Starting trial...";
         msg.className = "license-message";
         try {
+          const source = (document.getElementById("trialSource") || {}).value || "";
           const res = await fetch("/api/trial/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
+            body: JSON.stringify({ email, source }),
           });
           const data = await res.json();
           if (data.success) {

@@ -53,6 +53,7 @@ a = Analysis(
         'settings',
         'license',
         'hwid',
+        'telemetry',
         'updater',
         'live_transcribe',
         'analyst',

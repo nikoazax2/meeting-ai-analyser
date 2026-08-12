@@ -27,6 +27,9 @@ data/analyst_debug.log
 data/trial.json
 data/license.json
 
+# Supabase CLI
+supabase/.temp/
+
 # Environnement
 .env
 .venv/
